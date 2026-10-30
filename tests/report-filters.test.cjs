@@ -40,3 +40,20 @@ test('name-only notes apply only to an unambiguous customer',()=>{
  assert.equal(c.reportRows()[0][2],'C2');
  c.fixture.monthly.rows.push([4,'NV','C2','Other','No notes','External',30]);assert.equal(c.reportRows().length,0);
 });
+test('overdue days uses oldest open due date in selected months and exports integer days',()=>{
+ const c=setup();c.reportRows();const row=c.fixture.monthly.rows[0];
+ assert.equal(c.reportValue(row,'overdueDays'),29);
+ const column=c.reportColumns().find(column=>column.key==='overdueDays');assert.equal(column.unit,'days');assert.equal(c.reportFormat(29,column),'29');
+ assert.equal(c.reportExportSpec().rows[0].overdueDays,29);assert.equal(c.reportExportSpec().rows.at(-1).overdueDays,undefined);
+ vm.runInContext("reportState.monthly.from='256910'",c);c.reportRows();assert.equal(c.reportValue(row,'overdueDays'),0);
+ vm.runInContext("reportState.monthly.from='256909'",c);
+ c.fixture.rawSources.ar.rows.push({company:'PF',code:'C1',bill:'B3',date:'2026-09-02',due:'2026-09-01',balance:5});
+ c.reportRows();assert.equal(c.reportValue(row,'overdueDays'),59);
+ c.arInvoices=[{id:'A',sourceCompany:'PF',sourceCustomerCode:'C1',billNo:'B3'}];c.data=[{type:'in',certainty:'received',arInvoiceId:'A',date:'2026-10-31',amount:5}];
+ c.reportRows();assert.equal(c.reportValue(row,'overdueDays'),29);
+ c.debtorReportExcluded=()=>true;assert.equal(c.reportValue(row,'overdueDays'),0);
+});
+test('missing due dates and absent bill sources do not invent overdue day counts',()=>{
+ const c=setup(),row=c.fixture.monthly.rows[0];delete c.fixture.rawSources.ar.rows[0].due;c.reportRows();assert.equal(c.reportValue(row,'overdueDays'),'');
+ delete c.fixture.rawSources;c.reportRows();assert.equal(c.reportValue(row,'overdueDays'),'');
+});

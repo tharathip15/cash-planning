@@ -11,9 +11,9 @@ test('fresh workspace seeds saved reports, cash edits and invoice appointments b
  const {c,stored}=setup();await c.seedCurrentWorkspace();
  assert.deepEqual(stored,snapshot.storage);
  const reports=rawReportRuntime().context.reportDeserializeSnapshot(stored['profess-reports-v1']);
- assert.equal(reports.monthly.rows.length,34);assert.equal(reports.credit.rows.length,34);
- assert.equal(reports.rawSources.sales.rows.length,252);assert.equal(reports.rawSources.ar.rows.length,89);assert.equal(reports.rawSources.receipts.rows.length,205);
- assert.ok(reports.monthly.rows.every(row=>row[1]==='Novat'));
+ assert.equal(reports.monthly.rows.length,501);assert.equal(reports.credit.rows.length,501);
+ assert.equal(reports.rawSources.sales.rows.length,5956);assert.equal(reports.rawSources.ar.rows.length,1404);assert.equal(reports.rawSources.receipts.rows.length,5865);
+ assert.deepEqual([...new Set(reports.monthly.rows.map(row=>row[1]))].sort(),['Novat','TNP','โปรเฟส'].sort());
  assert.equal(Object.keys(JSON.parse(stored['profess-edits-v2'])).length,94);
 });
 test('existing workspace data is preserved without fetching or mixing datasets',async()=>{

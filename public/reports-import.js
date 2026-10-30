@@ -28,7 +28,29 @@ function reportDeserializeSnapshot(text){
  return snapshot;
 }
 function reportStored(){try{let d=reportDeserializeSnapshot(localStorage.getItem(reportStoreKey)||'null');return d?.schema===1&&d.monthly?.rows?.length&&d.credit?.rows?.length&&d.monthly?.months?.length?d:null}catch{return null}}
-function reportChooseInitial(bundled,stored){return stored||bundled}
+function reportChooseInitial(bundled,stored){
+ if(!stored)return bundled;
+ if(stored.year!==bundled.year||!stored.rawSources?.sales||!stored.rawSources?.ar||!bundled.rawSources)return stored;
+ const rawSources={},companies=new Set(Object.values(stored.rawSources).flatMap(source=>(source.rows||[]).map(r=>rrCompanyName(r.company))));let restored=false;
+ for(const kind of new Set([...Object.keys(bundled.rawSources),...Object.keys(stored.rawSources)])){
+  const local=stored.rawSources[kind],base=bundled.rawSources[kind];
+  const missing=(base?.rows||[]).filter(r=>!companies.has(rrCompanyName(r.company)));
+  if(missing.length)restored=true;
+  rawSources[kind]={...(local||base),file:missing.length?[...new Set([local?.file,base?.file].filter(Boolean))].join(' + '):(local||base).file,rows:[...(local?.rows||[]).map(r=>({...r,snapshotAsOf:r.snapshotAsOf||local.asOf||stored.asOf})),...missing.map(r=>({...r,snapshotAsOf:r.snapshotAsOf||base.asOf||bundled.asOf}))]};
+ }
+ if(!restored)return stored;
+ const asOf=[stored.asOf,bundled.asOf,...Object.values(rawSources).map(s=>s.asOf)].filter(Boolean).sort().at(-1),next=rrBuild(rawSources.sales.rows,rawSources.ar.rows,rawSources.master?.rows||[],rawSources.receipts?.rows||[],stored.year,asOf);
+ Object.assign(next,{rawSources,source:'PF + Novat + TNP · รวมข้อมูลบริษัทที่ยังไม่มี โดยเก็บข้อมูลในเครื่องเดิม',datasetVersion:bundled.datasetVersion});
+ for(const kind of ['monthly','credit'])Object.assign(next[kind],{source:next.source,year:next.year,cashLink:{asOf,year:next.year,bills:rawSources.ar.rows.map(r=>({company:r.company,code:r.code,bill:r.bill,date:r.date,balance:r.balance,snapshotAsOf:r.snapshotAsOf}))}});
+ return typeof reportApplyCustomerEdits==='function'?reportApplyCustomerEdits(next,{...bundled.customerEdits,...stored.customerEdits}):next;
+}
+function reportChooseAndStoreInitial(bundled,stored){
+ const next=reportChooseInitial(bundled,stored);if(!stored||next===stored)return next;
+ const before=localStorage.getItem(reportStoreKey),backup=localStorage.getItem(reportBackupKey);
+ try{localStorage.setItem(reportBackupKey,before||reportSerializeSnapshot(stored));localStorage.setItem(reportStoreKey,reportSerializeSnapshot(next))}
+ catch(error){for(const [key,value]of [[reportStoreKey,before],[reportBackupKey,backup]])try{if(value===null)localStorage.removeItem(key);else localStorage.setItem(key,value)}catch{}throw error}
+ return next;
+}
 function reportBundledUpdateAvailable(bundled,current){return !!bundled?.datasetVersion&&current?.datasetVersion!==bundled.datasetVersion}
 function reportFindSheet(book,name){let exact=book.SheetNames.find(n=>reportNorm(n)===reportNorm(name));if(exact)return book.Sheets[exact];throw Error('ไม่พบชีต “'+name+'” กรุณาใช้ไฟล์ที่มีทั้งสองชีตรายงาน')}
 function reportGrid(sheet){return XLSX.utils.sheet_to_json(sheet,{header:1,defval:null,raw:true,blankrows:true})}

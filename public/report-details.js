@@ -13,15 +13,30 @@ function reportBillIndex(snapshot){
  for(const r of source.ar?.rows||[]){const item=ensure(r);Object.assign(item,{...r,due:r.due||item.due||'',balance:Number(r.balance)||0,hasAr:true})}
  for(const r of source.receipts?.rows||[]){const item=ensure(r);item.events.push({...r,eventDate:r.receivedDate,eventType:r.settlementType==='credit-note'?'ใบลดหนี้':'รับชำระตามไฟล์',eventAmount:r.received})}
  const invoices=new Map((typeof arInvoices==='undefined'?[]:arInvoices).map(i=>[i.id,i]));
- for(const cash of typeof data==='undefined'?[]:data){if(cash.type!=='in'||cash.certainty!=='received')continue;const invoice=invoices.get(cash.arInvoiceId);if(!invoice)continue;const date=cash.receipt?.actualDate||cash.date;if(!date||!asOf||date<=asOf)continue;const row={company:invoice.sourceCompany,code:invoice.sourceCustomerCode,bill:invoice.billNo},item=index.get(reportSourceKey(row));if(!item)continue;const paid=Number.isFinite(cash.actualAmount)?cash.actualAmount:Number(cash.amount)||0;item.balance-=Math.min(Math.max(0,item.balance),Math.max(0,paid));item.events.push({...row,eventDate:date,eventType:'รับเงินจริงหลังชุดคงค้าง',eventAmount:paid,receiptNo:cash.receipt?.receiptNo||''})}
+ for(const cash of typeof data==='undefined'?[]:data){if(cash.type!=='in'||cash.certainty!=='received')continue;const invoice=invoices.get(cash.arInvoiceId);if(!invoice)continue;const date=cash.receipt?.actualDate||cash.date;if(!date||!asOf)continue;const row={company:invoice.sourceCompany,code:invoice.sourceCustomerCode,bill:invoice.billNo},item=index.get(reportSourceKey(row));if(!item||date<=(item.snapshotAsOf||asOf))continue;const paid=Number.isFinite(cash.actualAmount)?cash.actualAmount:Number(cash.amount)||0;item.balance-=Math.min(Math.max(0,item.balance),Math.max(0,paid));item.events.push({...row,eventDate:date,eventType:'รับเงินจริงหลังชุดคงค้าง',eventAmount:paid,receiptNo:cash.receipt?.receiptNo||''})}
  return index;
 }
 let reportOverdueIndex=new Map();
+let reportOverdueDaysIndex=new Map(),reportUnknownDueIndex=new Map();
 function reportPrepareOverdue(snapshot){
  reportOverdueIndex=new Map();const today=typeof bangkokToday==='function'?bangkokToday():new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Bangkok',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
- for(const bill of reportBillIndex(snapshot).values())if(bill.balance>0&&bill.due&&bill.due<today){const key=reportCompanyCode(bill.company)+'|'+String(bill.code).trim().toUpperCase(),month=String(Number(bill.date.slice(0,4))+543)+bill.date.slice(5,7);if(!reportOverdueIndex.has(key))reportOverdueIndex.set(key,new Set());reportOverdueIndex.get(key).add(month)}
+ reportOverdueDaysIndex=new Map();reportUnknownDueIndex=new Map();
+ for(const bill of reportBillIndex(snapshot).values())if(bill.balance>0){
+  const key=reportCompanyCode(bill.company)+'|'+String(bill.code).trim().toUpperCase(),month=String(Number(bill.date.slice(0,4))+543)+bill.date.slice(5,7);
+  if(!bill.due||!Number.isFinite(Date.parse(bill.due))){if(!reportUnknownDueIndex.has(key))reportUnknownDueIndex.set(key,new Set());reportUnknownDueIndex.get(key).add(month);continue}
+  if(bill.due>=today)continue;
+  if(!reportOverdueIndex.has(key))reportOverdueIndex.set(key,new Set());reportOverdueIndex.get(key).add(month);
+  if(!reportOverdueDaysIndex.has(key))reportOverdueDaysIndex.set(key,new Map());const days=reportOverdueDaysIndex.get(key),value=Math.floor((Date.parse(today+'T00:00:00Z')-Date.parse(bill.due+'T00:00:00Z'))/86400000);days.set(month,Math.max(days.get(month)||0,value));
+ }
+}
+function reportOverdueDays(row,snapshot=reportData){
+ if(!snapshot.rawSources?.ar)return '';
+ if(typeof debtorReportExcluded==='function'&&debtorReportExcluded(row))return 0;
+ const key=reportCompanyCode(row[1])+'|'+String(row[2]).trim().toUpperCase(),months=reportSelectedMonths(),days=reportOverdueDaysIndex.get(key),maximum=Math.max(0,...months.map(m=>days?.get(m.key)||0));
+ return maximum|| (months.some(m=>reportUnknownDueIndex.get(key)?.has(m.key))?'':0);
 }
 function reportIsOverdueCell(row,key,snapshot=reportData){
+ if(key==='overdueDays')return Number(reportOverdueDays(row,snapshot))>0;
  const targetMonth=snapshot.monthly.months.find(m=>'c'+m.outstanding===key);if(!targetMonth&&key!==snapshot.monthly.columns.at(-1).key)return false;
  if(typeof debtorReportExcluded==='function'&&debtorReportExcluded(row))return false;
  const months=reportOverdueIndex.get(reportCompanyCode(row[1])+'|'+String(row[2]).trim().toUpperCase());if(!months)return false;
