@@ -361,3 +361,5 @@ thead th{background:var(--head-mint);color:var(--head-ink);border-color:var(--he
 @media(max-width:650px){.report-metrics.debtor-status-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.income-group-head{align-items:flex-start;flex-direction:column}.source-pagination{flex-wrap:wrap}}
 
 .report-table td.report-debt{color:#486b65}.report-table td.report-overdue,.report-table tr:hover td.report-overdue{color:#c03747;background:#fff0f1;font-weight:600}.report-overdue .report-cell-link{color:inherit}
+
+.rr-source-choice{display:flex;gap:8px;flex-wrap:wrap}.rr-source-choice .selected{background:#e1f2e8;border-color:#76af93;color:#27634d}.rr-keep-badge,.rr-new-badge{display:inline-block;border-radius:7px;padding:6px 10px;background:#e9f5ee;color:#3c7559;font-size:12px}

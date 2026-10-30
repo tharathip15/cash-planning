@@ -104,3 +104,20 @@ test('actual-day display rounds to whole days without changing credit balances o
  assert.equal(report.reportFormat(95.79,{key:'c7',label:'จำนวนวันรับเงินจริง',unit:'days',type:'number'}),'96');
  assert.equal(report.reportFormat(95.79,{key:'c7',label:'ยอดค้าง',type:'number'}),'95.79');
 });
+
+test('updating only AR keeps saved sales and receipts; cancelling a replacement restores its saved source',()=>{
+ const r=rawReportRuntime(),c=r.context,elements=new Map(),d=snapshot();
+ c.$=id=>{if(!elements.has(id))elements.set(id,{value:'',checked:false,innerHTML:'',insertAdjacentHTML(){}});return elements.get(id)};
+ c.document={body:{insertAdjacentHTML(){}},querySelectorAll:()=>[]};c.reportData=d;c.arInvoices=[];c.arPending={};
+ const raw=fs.readFileSync('public/reports-raw.js','utf8');vm.runInContext(raw.slice(raw.indexOf('document.body.insertAdjacentHTML')),c);vm.runInContext(fs.readFileSync('public/reports-links.js','utf8'),c);
+ for(const kind of ['sales','ar','receipts'])r.setInput(kind,{...c.rrSavedInput(kind)});
+ c.rrSetSourceMode('ar','upload');assert.throws(()=>c.rrValidateSourceModes(),/เลือกไฟล์ใหม่/);
+ const headers=r.schemas.ar.map(f=>f[1]),values=r.schemas.ar.map(f=>({company:'โปรเฟส',code:'C1',name:'Customer',bill:'B1',date:'2026-01-01',due:'2026-01-31',balance:25}[f[0]]??''));
+ const book=r.XLSX.utils.book_new();r.XLSX.utils.book_append_sheet(book,r.XLSX.utils.aoa_to_sheet([headers,values]),'AR');r.setInput('ar',{book,sheet:'AR',filename:'new-ar.xlsx',company:'โปรเฟส'});vm.runInContext("rrAutoMap('ar')",c);
+ c.$('#rr-year').value='2569';c.$('#rr-asof').value='2026-01-31';c.$('#rr-scope').value='both';c.rrPreview();
+ assert.equal(c.$('#rr-error').textContent,'');assert.equal(vm.runInContext('rrPlan.rawSources.ar.rows[0].balance',c),25);
+ assert.deepEqual(JSON.parse(vm.runInContext('JSON.stringify(rrPlan.rawSources.sales.rows)',c)),d.rawSources.sales.rows);
+ assert.deepEqual(JSON.parse(vm.runInContext('JSON.stringify(rrPlan.rawSources.receipts.rows)',c)),d.rawSources.receipts.rows);
+ assert.match(c.rrSourceSummary(),/อัปเดตใหม่: ลูกหนี้/);assert.match(c.rrSourceSummary(),/คงข้อมูลเดิม: ยอดขาย/);
+ c.rrSetSourceMode('ar','keep');assert.equal(vm.runInContext('rrInputs.ar.rows[0].balance',c),40);assert.doesNotThrow(()=>c.rrValidateSourceModes());
+});

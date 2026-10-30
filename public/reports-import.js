@@ -28,6 +28,8 @@ function reportDeserializeSnapshot(text){
  return snapshot;
 }
 function reportStored(){try{let d=reportDeserializeSnapshot(localStorage.getItem(reportStoreKey)||'null');return d?.schema===1&&d.monthly?.rows?.length&&d.credit?.rows?.length&&d.monthly?.months?.length?d:null}catch{return null}}
+function reportChooseInitial(bundled,stored){return stored||bundled}
+function reportBundledUpdateAvailable(bundled,current){return !!bundled?.datasetVersion&&current?.datasetVersion!==bundled.datasetVersion}
 function reportFindSheet(book,name){let exact=book.SheetNames.find(n=>reportNorm(n)===reportNorm(name));if(exact)return book.Sheets[exact];throw Error('ไม่พบชีต “'+name+'” กรุณาใช้ไฟล์ที่มีทั้งสองชีตรายงาน')}
 function reportGrid(sheet){return XLSX.utils.sheet_to_json(sheet,{header:1,defval:null,raw:true,blankrows:true})}
 function reportHeader(grid,aliases){let best=null;for(let r=0;r<Math.min(40,grid.length);r++){let map=aliases.map(names=>grid[r].findIndex(v=>names.some(n=>reportNorm(v)===reportNorm(n))));if(map.every(i=>i>=0)){best={row:r,map};break}}if(!best)throw Error('หัวตารางไม่ครบ กรุณาตรวจรหัสลูกค้า บริษัท ลูกค้า และหัวข้อที่จำเป็น');return best}
