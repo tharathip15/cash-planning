@@ -12,29 +12,3 @@
 .report-auto-panel{background:#edf4fc;border:1px solid #d5e2f1;border-radius:12px;padding:20px;margin:18px 0;display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:15px}.report-auto-panel b{color:#315879}.report-auto-panel p{font-size:12px;margin:8px 0}.report-auto-panel small{color:#728493;font-size:11px}#report-auto-status{width:100%;font-size:12px;color:#315879;line-height:1.8}
 
 #rr-modal{width:1150px;max-width:96vw;max-height:92vh;overflow:auto}#rr-modal label{margin:8px 0}#rr-modal label input,#rr-modal label select{margin-top:6px}.rr-top{display:flex;align-items:center;justify-content:space-between;gap:12px}.rr-options{display:flex;align-items:end;flex-wrap:wrap;gap:14px}.rr-options label{flex:1;min-width:150px}.rr-cards{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:20px 0}.rr-card{padding:18px;border:1px solid #d6e4ec;background:#f5f9fc;border-radius:12px}.rr-card h3{margin:0 0 14px;font-size:15px;color:#366278}.rr-card p{word-break:break-word;font-size:12px}.rr-card input[type=file]{width:100%;font-size:12px}.rr-mapping{display:grid;grid-template-columns:1fr 1fr;gap:12px;font-size:11px}.rr-card details{margin:15px 0}.rr-card summary{cursor:pointer;color:#527a89}.rr-ack{font-size:12px;line-height:1.8}.rr-ack input{display:inline!important;width:auto!important}#rr-preview{margin:20px 0}#rr-preview td,#rr-preview th{padding:12px}#rr-error{line-height:1.8;margin:15px 0}@media(max-width:700px){.rr-cards{grid-template-columns:1fr}.rr-mapping{grid-template-columns:1fr}}
-
-/* Orange navigation theme. */
-aside {
-  background: #c2410c;
-  color: #fff7ed;
-}
-aside .brand small,
-#ar-menu summary,
-#report-menu summary {
-  color: #ffedd5;
-}
-#ar-menu {
-  border-top-color: #ea580c;
-}
-nav button:hover {
-  background: #b83b0b;
-}
-nav button.active {
-  background: #9a3412;
-  color: #fff;
-}
-nav button:focus-visible,
-nav summary:focus-visible {
-  outline: 2px solid #fff7ed;
-  outline-offset: 2px;
-}
