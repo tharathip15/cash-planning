@@ -80,7 +80,7 @@ function bindWorkspaceCards() {
   bindCard(cards[3], () => showCardDetail('เงินปลายช่วงตามแผนหลัก', rangeLabel(),
     `<div class="range-strip">เงินต้นช่วง ${opening === '' ? 'ยังไม่ระบุ' : money(Number(opening)) + ' บาท'} + เงินรับในแผนหลัก ${money(mainIncome(rows))} − ยอดจ่าย ${money(sum(rows, 'out'))} บาท</div>` + rangeCashTable(opening === '' ? null : Number(opening), rows), ioOverviewExportSpec(rows, opening)));
   document.querySelectorAll('#content .period-card').forEach((card, index) => {
-    const period = index === 0 ? 'am' : 'pm';
+    const period = ['am','pm','unset'][index];
     bindCard(card, () => showCashCard('รายการช่วง' + periods[period], rows.filter(x => x.period === period)));
   });
 }
@@ -99,6 +99,7 @@ function bindReportCards() {
   const rows = reportRows();
   document.querySelectorAll('#content .report-metrics > div').forEach((card, index) => {
     bindCard(card, () => {
+      if(monthly&&index>0&&typeof reportOpenSourceDetail==='function'&&(reportData.rawSources||index===3)){reportOpenSourceDetail(rows,index===3?'c7':reportTotalKeys()[index-1],'monthly');return}
       const selected = rows.filter(row => index === 0 || (monthly
         ? Number(reportValue(row, reportTotalKeys()[index - 1])) !== 0
         : index === 1 ? Number(reportValue(row, 'c7')) !== 0 : String(row[10]).includes('ไม่พบ')));

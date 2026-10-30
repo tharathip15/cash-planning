@@ -3,6 +3,7 @@ function ioCashRecordSpec(source,name,kind='all'){
  const rows=source.map(record=>{
   const proof=record.receipt||record.payment||{},outgoing=record.type==='out';
   return {date:record.date,group:groupName(record),party:record.party||'',amount:amount(record),
+   bankAccount:outgoing?String(record.bankAccount||''):'',paymentBehavior:!outgoing?(typeof customerBehavior==='function'?paymentBehaviors[customerBehavior(record).paymentBehavior]:record.paymentBehavior||''):'',behaviorNote:!outgoing?(typeof customerBehavior==='function'?customerBehavior(record).behaviorNote:record.behaviorNote||''):'',
    principal:outgoing?(record.principal??''):'',interestExpense:outgoing?(record.interestExpense??''):'',
    expenseType:outgoing?(expenseTypes[record.expenseType]||''):'',businessUnit:outgoing?(businessUnits[record.businessUnit]||''):'',
    period:periods[record.period],status:outgoing?payStatuses[record.payStatus]:certainties[record.certainty],note:record.note||'',
@@ -12,13 +13,17 @@ function ioCashRecordSpec(source,name,kind='all'){
 }
 
 function ioCalendarExportSpec(source){
- const cols=[{key:'date',label:'วันที่',type:'date'},...[
+ const cols=[{key:'section',label:'สรุป',type:'text'},{key:'date',label:'ตั้งแต่วันที่',type:'date'},{key:'endDate',label:'ถึงวันที่',type:'date'},...[
   ['income','รับชัวร์ + รับแล้ว'],['expense','แผนจ่าย + จ่ายแล้ว'],['net','รับ − จ่ายสุทธิ'],['uncertain','เงินรับยังไม่ชัวร์'],['count','จำนวนรายการ']
  ].map(([key,label])=>({key,label,type:'number'}))];
  const rows=rangeDates().map(date=>{
   const selected=source.filter(record=>record.date===date),income=mainIncome(selected),expense=sum(selected,'out');
-  return {date,income,expense,net:income-expense,uncertain:uncertainIncome(selected),count:selected.length};
+  return {section:'รายวัน',date,endDate:date,income,expense,net:income-expense,uncertain:uncertainIncome(selected),count:selected.length};
  });
+ if(typeof calendarMonthSummary==='function')for(const month of [...new Set(rangeDates().map(d=>d.slice(0,7)))]){
+  const summary=calendarMonthSummary(month,source);
+  for(const row of [...summary.weeks,summary.month])rows.push({section:month+' · '+row.label,date:row.start,endDate:row.end,income:row.income,expense:row.expense,net:row.net,uncertain:row.uncertain,count:source.filter(x=>x.date>=row.start&&x.date<=row.end).length});
+ }
  return {kind:'summary',name:'ปฏิทินรับจ่าย',cols,rows};
 }
 

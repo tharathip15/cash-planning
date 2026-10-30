@@ -240,3 +240,124 @@ thead th{background:var(--head-mint);color:var(--head-ink);border-color:var(--he
 .cash-summary-table thead th{background:#eef8ee;color:#4b6f51;border-bottom:1px solid #dce9d9}
 .day-detail-section thead th{background:var(--head-mint);color:var(--head-ink)}
 .day-detail-section.expense thead th{background:var(--head-peach);color:#806243}
+
+/* Soft weekday colours keep the calendar cheerful without obscuring amounts. */
+.calendar-section{border:1px solid #e9e3ef;border-radius:19px;box-shadow:0 5px 20px #76648c08}
+.calendar-section .panelhead{background:linear-gradient(110deg,#f3edfc,#eef9f4);border-bottom:1px solid #e7e3ee;padding:20px 22px}
+.calendar-section .panelhead h2{color:#67567c;font-size:18px}
+.calendar-section .panelhead h2::before{content:"✦";display:inline-grid;place-items:center;width:30px;height:30px;margin-right:10px;border-radius:11px;background:#fff4d9;color:#ba9553;font-size:18px;vertical-align:middle}
+.calendar-section .panelhead small{color:#91839e;font-size:11px}
+.calendar-section .calendar{gap:8px;padding:12px;background:#fcfafd}
+.calendar-section .dayname,.calendar-section .day{--day-tint:#f2faf6;--day-chip:#dbeee4;--day-ink:#567565}
+.calendar-section .dayname:nth-child(7n+1),.calendar-section .day:nth-child(7n+1){--day-tint:#fff2f6;--day-chip:#f9dee8;--day-ink:#925c74}
+.calendar-section .dayname:nth-child(7n+2),.calendar-section .day:nth-child(7n+2){--day-tint:#fffbec;--day-chip:#faedba;--day-ink:#8b7541}
+.calendar-section .dayname:nth-child(7n+3),.calendar-section .day:nth-child(7n+3){--day-tint:#fff3f1;--day-chip:#f8ded8;--day-ink:#9b6a64}
+.calendar-section .dayname:nth-child(7n+4),.calendar-section .day:nth-child(7n+4){--day-tint:#effaf3;--day-chip:#d7efdf;--day-ink:#547e62}
+.calendar-section .dayname:nth-child(7n+5),.calendar-section .day:nth-child(7n+5){--day-tint:#fff6ec;--day-chip:#ffe6c9;--day-ink:#94724d}
+.calendar-section .dayname:nth-child(7n+6),.calendar-section .day:nth-child(7n+6){--day-tint:#f0f8fe;--day-chip:#d9ebfa;--day-ink:#567a96}
+.calendar-section .dayname:nth-child(7n),.calendar-section .day:nth-child(7n){--day-tint:#f6f2fd;--day-chip:#e7def8;--day-ink:#7c679c}
+.calendar-section .dayname{border-radius:10px;background:var(--day-chip);color:var(--day-ink);padding:11px 8px;font-size:12px;font-weight:600;text-align:center}
+.calendar-section .day{min-height:165px;padding:12px 10px;border:1px solid #eae4ef;border-radius:13px;background:var(--day-tint);color:#52616a;box-shadow:0 2px 5px #72588104;transition:box-shadow .15s,transform .15s,border-color .15s}
+.calendar-section button.day:hover{background:var(--day-tint);border-color:#c6b4db;box-shadow:0 5px 13px #8567a71c;transform:translateY(-2px)}
+.calendar-section button.day:focus-visible{outline:3px solid #b79cce;outline-offset:1px}
+.calendar-section .day b{display:inline-grid;place-items:center;min-width:29px;height:29px;margin:0 0 9px;padding:0 6px;border-radius:10px;background:var(--day-chip);color:var(--day-ink);font-size:13px;line-height:1}
+.calendar-section .day small{font-size:10px;line-height:1.6;margin:5px 0}
+.calendar-section .day small.green{padding:4px 6px;background:#e5f4eb;border-radius:7px;color:#3d7e5c}
+.calendar-section .day small.red{padding:4px 6px;background:#fce9eb;border-radius:7px;color:#a36371}
+.calendar-section .day .total{border-top:1px dashed #dcd1e6;padding-top:7px;margin-top:8px;color:#7a668d;font-weight:600}
+.calendar-section .outside-range{opacity:1;background:#f6f4f8;color:#b3aabd;border:1px dashed #e4deeb;box-shadow:none}
+.calendar-section .outside-range b{background:#eeebf2;color:#aea3b7}
+.calendar-section .day[aria-hidden="true"]{background:transparent;border:0;box-shadow:none}
+@media(max-width:650px){.calendar-section .calendar{min-width:730px;gap:6px;padding:9px}.calendar-section .panelhead{padding:16px}.calendar-section .panelhead h2{font-size:16px}.calendar-section .day{padding:10px 8px}.calendar-section .dayname{font-size:11px;padding:9px 5px}}
+@media(prefers-reduced-motion:reduce){.calendar-section .day{transition:none}.calendar-section button.day:hover{transform:none}}
+
+/* Clickable report values and customer terms sheet. */
+.report-cell-link{font:inherit;font-weight:inherit;color:inherit;background:transparent;border:0;border-radius:6px;padding:5px 7px;margin:-5px -7px;cursor:pointer;text-align:inherit;min-width:100%}
+.report-cell-link:hover,.report-cell-link:focus-visible{background:#d9f1ec;color:#125a57;outline:2px solid #8dd3c1;outline-offset:-2px}
+.report-affiliate-toggle{display:flex!important;flex-direction:row!important;align-items:center;gap:8px!important;padding:8px 12px;background:#eff8f4;border-radius:10px}
+.report-affiliate-toggle input{width:16px;min-height:16px;accent-color:#468a7b}
+#report-editor{width:min(1400px,96vw);max-width:96vw;max-height:90vh;padding:20px;border:1px solid #d8e8e5;border-radius:18px;background:#fcfffd}
+.report-editor-head{display:flex;gap:10px;align-items:center;flex-wrap:wrap;position:sticky;top:-20px;z-index:4;background:#fcfffd;padding:12px 0}
+.report-editor-head h2{flex:1;min-width:200px;font-size:18px}
+.report-edit-table input{min-width:150px;width:100%;border:1px solid transparent;background:transparent;border-radius:0;padding:9px;font:inherit}
+.report-edit-table td{padding:0!important}
+.report-edit-table td:nth-child(-n+3){padding:10px!important;white-space:nowrap}
+.report-edit-table input:focus{outline:2px solid #77c7b4;background:#fff;outline-offset:-2px}
+.report-edit-table input.report-edited{background:#fff2cd}
+#report-editor-error{color:#39705f;padding:8px 0}
+
+/* Cash envelopes and calm weekly calendar totals. */
+.cash-budget-hint{display:block;padding:5px 9px;color:#578272;background:#f0f8f3;font-size:11px;line-height:1.5;white-space:normal;min-width:135px}
+.pending-income-notice{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:16px 20px;margin:16px 0;border:1px solid #f1dfb6;background:#fff8e9;border-radius:14px;color:#88601f}
+.pending-income-notice small{display:block;margin-top:4px;font-size:12px;color:#997d4f}
+.period-grid:has(>.period-card:nth-child(3)){grid-template-columns:repeat(3,minmax(0,1fr))}
+.period-card:nth-child(3){background:#fffaf0;border-color:#eddfb6}
+.calendar-summary{padding:22px 20px 24px;border-top:1px solid #e2ece7;background:linear-gradient(180deg,#fafdfb,#f3f9f7)}
+.calendar-summary-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px}
+.calendar-summary-heading h3{margin:0;font-size:15px;color:#285e53}
+.calendar-summary-heading span{font-size:12px;color:#6f8b83}
+.calendar-summary .scroll{border:1px solid #dce9e5;border-radius:14px;background:white;overflow:auto}
+.calendar-summary table{border-collapse:collapse;width:100%;min-width:670px}
+.calendar-summary thead th{padding:14px 16px;background:#e9f2ff;color:#516b8c;font-weight:600;text-align:left}
+.calendar-summary tbody th,.calendar-summary td,.calendar-summary tfoot th{padding:15px 16px;border-bottom:1px solid #e7eeeb;text-align:left}
+.calendar-summary th small{display:block;font-size:11px;color:#78918a;font-weight:400;margin-top:4px}
+.calendar-summary tbody tr:nth-child(even){background:#f8fcfa}
+.calendar-summary tfoot{background:#ddf1e8;font-weight:700;color:#265f50}
+.calendar-summary tfoot th,.calendar-summary tfoot td{border-bottom:0;border-top:2px solid #b9dbcd}
+.calendar-summary .money{text-align:right;font-variant-numeric:tabular-nums}
+.calendar-summary .pending-total{color:#aa802f}
+.calendar-summary-value{font:inherit;color:inherit;background:transparent;border:0;border-radius:7px;padding:4px 7px;cursor:pointer;min-width:100%;text-align:right}
+.calendar-summary-value:hover,.calendar-summary-value:focus-visible{outline:2px solid #82c7b3;background:#edf9f3}
+@media(max-width:800px){.period-grid:has(>.period-card:nth-child(3)){grid-template-columns:1fr}.pending-income-notice,.calendar-summary-heading{align-items:flex-start;flex-direction:column}.calendar-summary{padding:18px 12px}.pending-income-notice .secondary{width:100%}}
+
+/* A shared compact scale for financial summaries throughout the workspace. */
+.cards,.report-metrics{grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+.report-metrics{margin:14px 0}
+.cards>.card,.report-metrics>div,.day-detail-card,.period-card{min-width:0;padding:14px 16px;border-radius:12px}
+.cards>.card{border-top-width:2px}
+.cards .value{font-size:22px;line-height:1.25;margin:8px 0 6px;white-space:nowrap;letter-spacing:-.25px}
+.cards .card label,.report-metrics small{font-size:11px;line-height:1.4}
+.cards .card small{font-size:10px;line-height:1.5}
+.cards .card input#overview-opening{font-size:22px!important;line-height:1.25;padding-bottom:4px}
+.cards .card input::placeholder{font-size:12px}
+.report-metrics strong{font-size:22px;line-height:1.25;margin-top:8px;white-space:nowrap;letter-spacing:-.25px;font-variant-numeric:tabular-nums}
+.clickable-card::after{margin-top:7px;font-size:9px;line-height:1.4}
+.period-grid{gap:10px;margin-top:14px}
+.period-card h2{font-size:13px;margin-bottom:8px}
+.period-card .flowrow{padding:5px 0;font-size:11px}
+.period-card .helper{font-size:10px;margin-top:6px}
+.day-detail-cards{gap:10px;margin:14px 20px;grid-template-columns:repeat(3,minmax(0,1fr))}
+.day-detail-card label{font-size:11px}
+.day-detail-card b{font-size:21px;margin-top:7px;line-height:1.25}
+.day-detail-card small{font-size:10px;line-height:1.5;margin-top:6px}
+.calendar-section .day{min-height:132px;padding:10px 9px}
+.calendar-section .day b{height:26px;min-width:26px;font-size:12px;margin-bottom:6px}
+.calendar-section .day small{margin:3px 0;line-height:1.4}
+.calendar-section .day small.green,.calendar-section .day small.red{padding:3px 5px}
+.calendar-section .day .total{margin-top:6px;padding-top:5px}
+@media(max-width:1100px){.cards,.report-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:600px){.cards,.report-metrics{gap:8px}.cards>.card,.report-metrics>div,.day-detail-card,.period-card{padding:12px}.cards .value,.report-metrics strong{font-size:18px}.cards .card input#overview-opening{font-size:18px!important}.cards .card label,.report-metrics small{font-size:10px}.day-detail-cards{grid-template-columns:1fr;margin:12px}.calendar-section .day{padding:8px;min-height:125px}}
+
+/* Counterparty bank history and customer payment habits. */
+.bank-account-cell input{font-variant-numeric:tabular-nums;font-family:inherit;letter-spacing:.3px}
+.bank-account-cell small{display:block;min-height:15px;padding:3px 8px 6px;font-size:10px;line-height:1.4;color:#648779;white-space:normal}
+.sheet-expenses th.bank-account-head{background:#e5f1ff;color:#486b8d}
+[data-grid-key="paymentBehavior"],[data-ar-sheet-key="paymentBehavior"]{min-width:180px;background:#f6faf5!important}
+[data-grid-key="behaviorNote"],[data-ar-sheet-key="behaviorNote"]{min-width:200px}
+
+/* Debt classification and one connected receivables workspace. */
+.report-metrics.debtor-status-metrics{grid-template-columns:repeat(5,minmax(0,1fr))}
+.debtor-status-select{min-width:190px;max-width:260px;font:inherit;border:1px solid #d6e5dd;border-radius:8px;padding:8px;background:#f6faf4;color:#3d6654}
+.debtor-table td:nth-child(3){min-width:240px}.debtor-table input{min-width:250px;max-width:400px;font:inherit;border:1px solid #e1e8e4;border-radius:6px;padding:8px}
+.ar-source-cards{margin:16px 0}.source-ar-controls{display:flex;gap:14px;align-items:center;flex-wrap:wrap;margin:14px 0;color:#597969;font-size:12px}
+.source-ar-controls label{display:flex;gap:7px;align-items:center}.source-ar-controls input{width:16px;min-height:16px;accent-color:#448773}
+.income-date-group{margin-top:18px;border:1px solid #dce8e1;border-radius:12px;overflow:hidden}
+.income-group-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 16px;background:#eaf6ee;color:#396753}
+.income-group-head h3{margin:0;font-size:14px}.income-group-head span{font-size:12px}
+.income-invoice-link{display:block;border:0;background:#edf6f1;color:#39765f;font:inherit;font-size:10px;padding:5px 8px;text-align:left;cursor:pointer;border-radius:5px;margin:3px 5px}
+.source-pagination{display:flex;align-items:center;justify-content:flex-end;gap:8px;padding:12px 16px;font-size:12px;color:#6e837a;background:#fbfdfb}.source-pagination span{margin-right:auto}
+.ar-sheet input[readonly]{background:#f1f5f4;color:#6b7c75}
+@media(max-width:1200px){.report-metrics.debtor-status-metrics{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media(max-width:650px){.report-metrics.debtor-status-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.income-group-head{align-items:flex-start;flex-direction:column}.source-pagination{flex-wrap:wrap}}
+
+.report-table td.report-debt{color:#486b65}.report-table td.report-overdue,.report-table tr:hover td.report-overdue{color:#c03747;background:#fff0f1;font-weight:600}.report-overdue .report-cell-link{color:inherit}

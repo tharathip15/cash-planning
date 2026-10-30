@@ -19,6 +19,7 @@ function setup() {
  });
  const app = fs.readFileSync('public/app.js', 'utf8');
  vm.runInContext(fs.readFileSync('public/workspace-guide.js', 'utf8'), context);
+ vm.runInContext(fs.readFileSync('public/counterparty-fields.js','utf8'),context);
  vm.runInContext(app.split('\n').filter(line => /^const (expenseTypes|businessUnits)=/.test(line)).join('\n'), context);
  const grid = fs.readFileSync('public/grid.js', 'utf8');
  vm.runInContext(grid.slice(0, grid.indexOf('let pasteBatch=')), context);
@@ -97,6 +98,36 @@ test('Excel paste accepts new 11-column layout and original 7-column layout', ()
  const legacy = context.parseSheetPaste('2026-11-01\tจ่ายเงินสด\tSupplier\t105\tเช้า\tยังไม่ชัวร์\tหมายเหตุ');
  assert.equal(legacy.errors.length, 0);
  assert.equal(legacy.rows[0].principal, '');
+ const bank=context.parseSheetPaste('2026-11-01\tจ่ายเงินสด\tSupplier\t105\t100\t5\tค่าใช้จ่าย\tFinance\t001-2-34567-8\tเช้า\tยังไม่ชัวร์\tหมายเหตุ');
+ assert.equal(bank.errors.length,0);assert.equal(bank.rows[0].bankAccount,'001-2-34567-8');
+ const income=context.parseSheetPaste('2026-11-01\tรับเครดิต\tCustomer\t105\tเช้า\tยังไม่ชัวร์\tหมายเหตุ\tจ่ายตามวันนัด\tวันที่ 15');
+ assert.equal(income.errors.length,0);assert.equal(income.rows[0].paymentBehavior,'on_promise');
+});
+
+test('an AR note-only Excel update preserves shared behavior that was edited in income',()=>{
+ const {context}=setup(),invoice={id:'ar1',customer:'Acme',billNo:'B1',sourceCompany:'โปรเฟส',sourceCustomerCode:'C1',amount:100,priorPaid:0};
+ context.arInvoices=[invoice];context.arPending={};context.arNewDraft=()=>({});context.arValidateBatch=()=>({errors:[]});
+ context.setCustomerBehavior({id:1,party:'Acme',arInvoiceId:'ar1'},'paymentBehavior','early');
+ context.$=()=>({value:'update'});
+ context.importRow={customer:'Acme',billNo:'B1',behaviorNote:'ทุกวันที่ 15'};
+ vm.runInContext("ioState={kind:'ar',map:{behaviorNote:2},fileName:'test.xlsx'};ioConvertRows=()=>({converted:[{row:importRow,index:2}],errors:[]})",context);
+ const plan=context.ioBuildPlan();assert.equal(plan.errors.length,0);
+ assert.equal(plan.changes[0].value.paymentBehavior,'early');assert.equal(plan.changes[0].value.behaviorNote,'ทุกวันที่ 15');
+});
+
+test('reimporting a cash envelope preserves its original plan instead of subtracting spending twice',()=>{
+ const {context}=setup();
+ context.recordAmount=row=>row.actualAmount??row.amount;
+ vm.runInContext(fs.readFileSync('public/cash-calendar.js','utf8'),context);
+ const old={...context.freshSheetRow('2026-11-01'),id:28,name:'ซัพเงินสด',party:'ซัพเงินสด',amount:3000000};
+ context.data=[old,{...context.freshSheetRow(old.date),id:100001,amount:100000}];
+ context.$=()=>({value:'update'});
+ context.importRow={date:old.date,group:'จ่ายเงินสด',amount:2900000,planAmount:3000000,status:'uncertain',period:'unset',party:old.party,note:'',id:'28'};
+ vm.runInContext("ioState={kind:'out',map:{planAmount:6},fileName:'test.xlsx'};ioConvertRows=()=>({converted:[{row:importRow,index:2}],errors:[]})",context);
+ const plan=context.ioBuildPlan();
+ assert.deepEqual(Array.from(plan.errors),[]);
+ assert.equal(plan.changes[0].value.amount,3000000);
+ assert.equal(context.cashBudgetAmount(plan.changes[0].value,context.data),2900000);
 });
 
 test('save persists fields for both original and newly added records', () => {
@@ -117,7 +148,7 @@ test('editing a paid record saves its breakdown while preserving confirmed amoun
  const element = { dataset: { gridId: '1', gridKey: 'principal' }, value: '100', tagName: 'INPUT', closest: () => row,
   setCustomValidity(value) { this.validationMessage = value; }, reportValidity() {},
  };
- context.document = { querySelectorAll: () => [element] };
+ context.document = { querySelectorAll: selector => selector==='[data-grid-id]'?[element]:[],querySelector:()=>null };
  let saved = 0;
  context.save = () => saved++;
  context.bindSheet();
@@ -267,7 +298,7 @@ test('generated Excel contains the selected module and preserves numeric and bla
  Object.assign(context, { setTimeout, clearTimeout, setImmediate, clearImmediate, Uint8Array, ArrayBuffer, Buffer });
  vm.runInContext(fs.readFileSync('public/vendor/xlsx.full.min.js', 'utf8'), context);
  vm.runInContext(fs.readFileSync('public/vendor/jszip.min.js', 'utf8'), context);
- const spec = context.ioCashRecordSpec([{ ...context.freshSheetRow('2026-11-02'), id: 1, amount: 105, principal: 100, interestExpense: 5, businessUnit: 'Finance' }], 'รายการจ่าย / เฉพาะเช้า', 'out');
+ const spec = context.ioCashRecordSpec([{ ...context.freshSheetRow('2026-11-02'), id: 1, amount: 105, principal: 100, interestExpense: 5, businessUnit: 'Finance',bankAccount:'001-2-34567-8' }], 'รายการจ่าย / เฉพาะเช้า', 'out');
  const bytes = await context.ioWorkbookBytes(spec);
  const book = context.XLSX.read(bytes, { type: 'array' });
  assert.equal(book.SheetNames[0], 'รายการจ่าย   เฉพาะเช้า');
@@ -278,6 +309,7 @@ test('generated Excel contains the selected module and preserves numeric and bla
  assert.equal(values[1][4], 100);
  assert.equal(values[1][5], 5);
  assert.equal(values[1][7], 'Finance');
+ assert.equal(values[1][8],'001-2-34567-8');
  const archive = await context.JSZip.loadAsync(bytes);
  assert.match(await archive.file('xl/worksheets/sheet1.xml').async('string'), /state="frozen"/);
  const summary = { kind: 'summary', name: 'ภาพรวมเงินสด', cols: [{ key: 'balance', label: 'คงเหลือ', type: 'number' }], rows: [{ balance: '' }, { balance: -30 }] };
@@ -285,4 +317,9 @@ test('generated Excel contains the selected module and preserves numeric and bla
  const summaryValues = context.XLSX.utils.sheet_to_json(summaryBook.Sheets['ภาพรวมเงินสด'], { header: 1, defval: '', blankrows: true });
  assert.equal(summaryValues[1][0], '');
  assert.equal(summaryValues[2][0], -30);
+ const daysSpec={kind:'ar',report:true,name:'วันรับจริง',cols:[{key:'c7',label:'จำนวนวันรับจริง',type:'number',unit:'days'},{key:'amount',label:'ยอดเงิน',type:'number'}],rows:[{c7:96,amount:95.79}]};
+ const daysBook=context.XLSX.read(await context.ioWorkbookBytes(daysSpec),{type:'array',cellNF:true});
+ assert.equal(daysBook.Sheets['วันรับจริง'].A2.v,96);
+ assert.equal(daysBook.Sheets['วันรับจริง'].A2.z,'0');
+ assert.equal(daysBook.Sheets['วันรับจริง'].B2.z,'#,##0.00');
 });
