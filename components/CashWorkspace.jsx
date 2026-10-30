@@ -23,7 +23,13 @@ async function seedCurrentWorkspace() {
   }
 }
 function boot() {
-  if (!bootPromise) bootPromise = scripts.reduce((pending, src) => pending.then(() =>
+  if (!bootPromise) bootPromise = new Promise((resolve, reject) => {
+    const tag = document.createElement('script');
+    tag.src = '/central-store.js';
+    tag.onload = resolve;
+    tag.onerror = () => reject(new Error('Cannot load central database connection'));
+    document.body.appendChild(tag);
+  }).then(() => window.CashCentral.initialize()).then(() => scripts.reduce((pending, src) => pending.then(() =>
     new Promise((resolve, reject) => {
       const tag = document.createElement('script');
       tag.src = '/' + src;
@@ -32,7 +38,7 @@ function boot() {
       tag.onerror = () => reject(new Error('Cannot load ' + src));
       document.body.appendChild(tag);
     })
-  ), seedCurrentWorkspace());
+  ), Promise.resolve()));
   return bootPromise;
 }
 export default function CashWorkspace() {
@@ -41,7 +47,8 @@ export default function CashWorkspace() {
       console.error(error);
       const message = document.createElement('p');
       message.setAttribute('role', 'alert');
-      message.textContent = 'โหลดระบบไม่สำเร็จ กรุณารีเฟรชหน้าเว็บ';
+      message.textContent = 'เชื่อมต่อฐานข้อมูลกลางไม่สำเร็จ ยังไม่เปิดให้แก้ไขข้อมูล กรุณาลองรีเฟรชอีกครั้ง';
+      document.getElementById('profess-workspace').inert = true;
       document.body.prepend(message);
     });
   }, []);

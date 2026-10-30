@@ -4,6 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
+    "test": "node scripts/run-tests.mjs",
     "build": "next build",
     "start": "next start"
   },
@@ -12,6 +13,7 @@
   },
   "dependencies": {
     "next": "latest",
+    "postgres": "^3.4.9",
     "react": "latest",
     "react-dom": "latest"
   }

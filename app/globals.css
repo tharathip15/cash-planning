@@ -392,3 +392,5 @@ thead th{background:var(--head-mint);color:var(--head-ink);border-color:var(--he
 .report-table td.report-debt{color:#486b65}.report-table td.report-overdue,.report-table tr:hover td.report-overdue{color:#c03747;background:#fff0f1;font-weight:600}.report-overdue .report-cell-link{color:inherit}
 
 .rr-source-choice{display:flex;gap:8px;flex-wrap:wrap}.rr-source-choice .selected{background:#e1f2e8;border-color:#76af93;color:#27634d}.rr-keep-badge,.rr-new-badge{display:inline-block;border-radius:7px;padding:6px 10px;background:#e9f5ee;color:#3c7559;font-size:12px}
+
+.cash-central-status{position:sticky;top:0;z-index:30;margin-left:240px;padding:10px 24px;background:#edf5f1;border-bottom:1px solid #d6e4dc;color:#275a46;display:flex;align-items:center;gap:12px;flex-wrap:wrap;font-size:12px}.cash-central-status[data-level=error]{background:#fff1e8;color:#88452b}.cash-central-status[data-level=pending]{background:#fff8e5;color:#765b20}.cash-central-status .secondary{font-size:12px;padding:6px 10px}@media(max-width:1150px){.cash-central-status{margin-left:208px}}@media(max-width:650px){.cash-central-status{position:relative;margin-left:0;padding:10px 20px}}
