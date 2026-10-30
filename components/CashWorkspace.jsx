@@ -1,7 +1,7 @@
 "use client";
 import { useEffect } from 'react';
 import markup from './screen.json';
-const scripts = ["search.js", "app.js", "grid.js", "calendar-detail.js", "ar.js", "ar-sheet.js", "ar-notice.js", "vendor/xlsx.full.min.js", "vendor/jszip.min.js", "excel-io.js", "reports.js", "reports-import.js", "reports-raw.js", "reports-links.js"];
+const scripts = ["search.js", "workspace-guide.js", "card-actions.js", "app.js", "grid.js", "calendar-detail.js", "ar.js", "ar-sheet.js", "ar-notice.js", "vendor/xlsx.full.min.js", "vendor/jszip.min.js", "export-views.js", "excel-io.js", "reports.js", "reports-import.js", "reports-raw.js", "reports-links.js"];
 // Legacy modules own this DOM subtree; React must not update its contents.
 let bootPromise;
 function boot() {

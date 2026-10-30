@@ -1,0 +1,88 @@
+const workspaceGuideTopics=[
+ {id:'start',title:'เริ่มต้นใช้งาน',subtitle:'จากข้อมูลรายการ สู่ภาพรวมเงินสด',view:'overview',action:'เปิดภาพรวม',steps:[
+  'เลือกช่วงวันที่ที่ต้องการวางแผนจากแถบด้านบน',
+  'เพิ่มรายการจ่ายและบิลลูกหนี้ หรือใช้ Import Excel นำเข้าข้อมูลเดิม',
+  'กรอกเงินต้นช่วงที่หน้าภาพรวม แล้วคลิกการ์ดเพื่อดูรายการประกอบยอด'
+ ],notes:'ข้อมูลเก็บในเบราว์เซอร์และเครื่องนี้ ควรส่งออก Excel เพื่อสำรองข้อมูลเป็นระยะ ระบบยังไม่เชื่อมบัญชีธนาคารหรือระบบอนุมัติ'},
+ {id:'cash',title:'อ่านภาพรวมเงินสด',subtitle:'เงินต้น รับ จ่าย และเงินคงเหลือ',view:'overview',action:'ดูภาพรวมเงินสด',steps:[
+  'เงินต้นช่วงคือเงินพร้อมใช้ก่อนเริ่มรับ–จ่ายในวันแรก ห้ามรวมเงินรับที่อยู่ในช่วงแล้ว',
+  'ยอดรับหลักรวมเฉพาะ “รับชัวร์” และ “รับแล้ว” เงินรับที่ยังไม่ชัวร์แสดงแยก',
+  'ยอดจ่ายรวมทั้งแผนและที่จ่ายแล้ว รวมรายการที่ยังไม่ชัวร์เพื่อสำรองเงิน',
+  'เงินปลายช่วง = เงินต้น + ยอดรับหลัก − ยอดจ่าย คลิกการ์ดดูยอดต่อเนื่องรายวัน'
+ ],notes:'ยอดช่วงเช้า–บ่ายไม่รวมรายการที่ยังไม่ระบุเวลา และไม่ยืนยันลำดับเงินเข้า–จ่ายภายในช่วงเดียวกัน คำค้นจะกรองทั้งยอดบนการ์ดและรายการประกอบ'},
+ {id:'payments',title:'จัดการรายการรับ–จ่าย',subtitle:'เพิ่มรายการ แยกเงินต้น ดอกเบี้ย ประเภท และ BU',view:'list',action:'เปิดรายการจ่าย',steps:[
+  'เลือก “เพิ่มรายการ” แล้วกรอกวันที่ รายการ คู่ค้า และยอดเงินในตาราง',
+  'รายการจ่ายมีช่องเงินต้น ดอกเบี้ยจ่าย ประเภทค่าใช้จ่าย/ต้นทุนสินค้า และ BU ถัดจากยอดเงิน',
+  'เลือกช่วงเช้า บ่าย หรือยังไม่ระบุเวลา และกำหนดสถานะตามความแน่นอน',
+  'เมื่อเงินเข้าหรือจ่ายจริง ให้กดยืนยันและกรอกยอดจริง วันที่ บัญชี และผู้ยืนยัน'
+ ],notes:'ใช้ยอดคอลัมน์ D คำนวณเงินสด ช่องเงินต้นและดอกเบี้ยเป็นรายละเอียด ไม่บวกซ้ำ การแก้ตารางบันทึกอัตโนมัติ ใช้ Tab ไปช่องถัดไปและ Enter ลงแถวถัดไป รายการยืนยันแล้วล็อกยอดจริง แต่แก้หมายเหตุและรายละเอียดการจ่ายได้'},
+ {id:'import',title:'นำเข้า Excel และป้องกันรายการซ้ำ',subtitle:'เลือกไฟล์ จับคู่ ตรวจข้อมูล แล้วยืนยัน',view:'list',action:'ไปหน้านำเข้ารายการจ่าย',steps:[
+  'กด “นำเข้า Excel” เลือกไฟล์ .xlsx, .xls หรือ .csv และเลือกชีตที่ต้องการ',
+  'ตรวจแถวหัวตารางและจับคู่คอลัมน์ ช่องที่มี * ต้องระบุให้ครบ',
+  'อัปโหลดไฟล์เดิมใช้ “ข้ามรายการซ้ำ” หากต้องการแก้รายการเดิม ให้ใช้ “อัปเดตรายการเดิม” พร้อมเลขรายการในทุกแถว',
+  'กดตรวจข้อมูล ดูจำนวนเพิ่มใหม่ ข้ามซ้ำ และข้อผิดพลาดก่อนยืนยันนำเข้า'
+ ],notes:'เมื่อไม่มีเลขรายการ ระบบเทียบวันที่ คู่ค้า และยอดตามคอลัมน์ที่จับคู่ หากข้อมูลคล้ายกันแต่ยืนยันไม่ได้ ให้ตรวจเลขรายการเดิมก่อนเพิ่ม รายการที่ยืนยันจริงหรือเชื่อมบิลต้องแก้ที่ต้นทาง ข้อมูลรับ/จ่ายจริงจากไฟล์ต้องมีบัญชี ผู้ยืนยัน วันที่ และช่วงเวลา'},
+ {id:'calendar',title:'ใช้ปฏิทินรับ–จ่าย',subtitle:'ดูแผนรายวันและรายการประกอบ',view:'calendar',action:'เปิดปฏิทิน',steps:[
+  'เลือกช่วงวันที่ ปฏิทินจะแสดงยอดรับ จ่าย และสุทธิของแต่ละวัน',
+  'คลิกวันที่เพื่อดูรายการรับ–จ่ายและสถานะ',
+  'ใช้วันก่อน/วันถัดไปเพื่อดูต่อเนื่อง หรือคลิกการ์ดในหน้ารายวันเพื่อดูเฉพาะกลุ่ม'
+ ],notes:'วันนอกช่วงที่เลือกไม่รวมในยอด คำค้นมีผลกับรายการและยอดในปฏิทินด้วย'},
+ {id:'ar',title:'วางแผนรับและติดตามลูกหนี้',subtitle:'เริ่มจากบิล บันทึกแผน แล้วติดตามงาน',view:'ar-plan',action:'เปิดแผนลูกหนี้',steps:[
+  'เพิ่มบิลด้วยฟอร์ม ตาราง Excel หรือดึงจากยอดขายรายบิล',
+  'กรอกเลขบิล ลูกค้า วันส่งของ วันครบกำหนด ยอดบิล และวันนัดรับให้ครบ',
+  'กดบันทึกแผนรับเพื่อเชื่อมกับภาพรวม ฉบับร่างยังไม่เปลี่ยนยอดเงินสด',
+  'เปิดแจ้งเตือนงานและรายละเอียดบิลเพื่อบันทึกการติดตาม นัดใหม่ และวันที่ส่งหนังสือจริง'
+ ],notes:'อายุหนี้ยึดวันครบกำหนดเดิม การเปลี่ยนนัดไม่เริ่มนับใหม่ หนังสือฉบับที่ 2 เริ่มเมื่อฉบับที่ 1 ครบ 15 วัน หรือถึง Day 50 และต้องส่งไม่เกิน Day 55 การแจ้งเตือนตรวจทุกบิลเมื่อเปิดเว็บ ยังไม่ส่งอีเมล หนังสือ หรือระงับขายจริงให้ ต้องบันทึกและเก็บหลักฐานการดำเนินการจริง'},
+ {id:'reports',title:'ดูรายงานและอัปเดตข้อมูล',subtitle:'ยอดขาย ยอดค้าง เครดิต และข้อมูลต้นทาง',view:'report-monthly',action:'เปิดรายงานยอดขาย',steps:[
+  'เลือกรายงานยอดขายรายเดือน หรือรายชื่อลูกค้าและเครดิต',
+  'กรองเดือน บริษัท และลูกค้า หรือค้นหาจากหัวตาราง',
+  'คลิกการ์ดเพื่อดูข้อมูลประกอบยอด กดส่งออก Excel เพื่อรับข้อมูลตามตัวกรอง',
+  'เปิด “อัปเดตข้อมูล” เพื่อนำเข้าไฟล์สรุปหรือไฟล์ยอดขายและลูกหนี้ต้นทาง'
+ ],notes:'รายงานอ้างอิงข้อมูลที่นำเข้าล่าสุด ช่องว่างไม่ถือเป็นเครดิตเงินสด ยอดเงินรวม VAT ตามไฟล์ รายงานที่มีข้อมูลเชื่อมรายบิลจะหักยอดรับจริงหลังวัน snapshot โดยไม่หักซ้ำ การนำเข้าใหม่แทนข้อมูลต้นทางชนิดนั้น ควรตรวจขอบเขตก่อนยืนยัน'},
+ {id:'backup',title:'สำรองข้อมูลและแก้ปัญหา',subtitle:'เก็บไฟล์สำรองและตรวจสถานะก่อนปิดหน้า',view:'list',action:'เปิดรายการเพื่อส่งออก',steps:[
+  'กดส่งออก Excel จากโมดูลที่ต้องการ: ภาพรวมเป็นสรุปเงินสด ปฏิทินเป็นยอดรายวัน และหน้ารายการส่งออกตามตัวกรอง หากเปิดรายละเอียดการ์ด ให้ใช้ปุ่มส่งออกภายในหน้าต่างนั้น',
+  'หากขึ้นข้อความบันทึกไม่สำเร็จ ให้ส่งออกข้อมูลก่อนปิดหน้าเว็บ',
+  'ใช้เบราว์เซอร์และเครื่องเดิมเพื่อดูข้อมูลที่บันทึกไว้ ข้อมูลยังไม่ซิงก์ระหว่างผู้ใช้',
+  'รายการที่ซ้ำไปแล้วให้เทียบเลขรายการ ยอด วันที่ และหลักฐานก่อนแก้ไข'
+ ],notes:'ชื่อผู้ยืนยันเป็นข้อมูลที่ผู้ใช้กรอกเอง ยังไม่มีการตรวจสิทธิ์หรือระบบอนุมัติ ข้อมูลรายงานอาจย้อนกลับชุดก่อนหน้าได้จากเมนูอัปเดตข้อมูล แต่ไม่ได้ย้อนประวัติรับ–จ่ายทั้งหมด'}
+];
+let workspaceGuideTopic='start',workspaceGuideReturn='overview';
+function updateWorkspaceHeader(){
+ const subtitles={overview:'เงินพร้อมใช้ และแผนรับ–จ่ายของคุณ',calendar:'ดูยอดรายวันและคลิกเพื่อเปิดรายละเอียด',income:'จัดการเงินรับและยืนยันยอดที่เข้าจริง',list:'จัดการค่าใช้จ่าย เงินต้น ดอกเบี้ย และ BU','ar-plan':'วางแผนรับเงินและติดตามงานรายบิล','report-monthly':'ดูยอดขายและยอดค้างตามตัวกรอง','report-credit':'ดูเครดิตและเงื่อนไขการชำระของลูกค้า',guide:'วิธีใช้งานและคำตอบที่หาได้ในที่เดียว'};
+ const subtitle=document.querySelector('.top p');if(subtitle)subtitle.textContent=subtitles[view]||'จัดการแผนรับ–จ่ายของคุณ';
+ const exportButton=document.querySelector('#export');
+ const moduleLabels={overview:'ภาพรวม',calendar:'ปฏิทิน',income:'รายการรับ',list:'รายการจ่าย','ar-plan':'ลูกหนี้'};
+ if(exportButton){exportButton.textContent='ส่งออก Excel'+(moduleLabels[view]?' · '+moduleLabels[view]:'');exportButton.setAttribute('aria-label',exportButton.textContent)}
+}
+function openWorkspaceGuide(topic){
+ if(view!=='guide')workspaceGuideReturn=view;
+ workspaceGuideTopic=topic||({overview:'cash',calendar:'calendar',income:'payments',list:'payments','ar-plan':'ar','report-monthly':'reports','report-credit':'reports'}[view]||'start');
+ view='guide';render();
+ document.querySelector('aside')?.removeAttribute('data-mobile-open');
+ document.querySelector('#nav-toggle')?.setAttribute('aria-expanded','false');
+ document.querySelector('#title')?.scrollIntoView({block:'start'});
+}
+function renderWorkspaceGuide(){
+ const orderedTopics=[...workspaceGuideTopics].sort((a,b)=>Number(b.id===workspaceGuideTopic)-Number(a.id===workspaceGuideTopic));
+ document.querySelector('main > .toolbar').hidden=true;
+ $('#title').textContent='คู่มือการใช้งาน';$('.eyebrow').textContent='PROFESS / HELP CENTER';
+ document.querySelectorAll('nav button[data-view]').forEach(button=>button.classList.toggle('active',button.dataset.view==='guide'));
+ $('#content').innerHTML=`<section class="guide-hero"><div><span class="section-kicker">เริ่มง่าย ใช้งานคล่อง</span><h2>อยากทำอะไรวันนี้?</h2><p>เลือกหัวข้อหรือค้นหาวิธีใช้งานได้ที่นี่</p></div><button class="secondary" id="guide-back">← กลับหน้าทำงาน</button></section><label class="guide-search"><span>ค้นหาในคู่มือ</span><input type="search" id="guide-search" placeholder="เช่น นำเข้า Excel, รายการซ้ำ, BU" autocomplete="off"></label><div class="guide-topics">${orderedTopics.map(topic=>`<details class="guide-topic" id="guide-topic-${topic.id}" ${topic.id===workspaceGuideTopic?'open':''}><summary><span><b>${esc(topic.title)}</b><small>${esc(topic.subtitle)}</small></span><span class="guide-chevron" aria-hidden="true">⌄</span></summary><div class="guide-topic-body"><ol>${topic.steps.map(step=>`<li>${esc(step)}</li>`).join('')}</ol><p class="guide-note">${esc(topic.notes)}</p><button type="button" class="primary" data-guide-view="${topic.view}">${esc(topic.action)} →</button></div></details>`).join('')}</div><p id="guide-empty" class="empty" role="status" hidden>ไม่พบหัวข้อนี้ ลองค้นหาด้วยคำอื่น</p>`;
+ $('#guide-back').onclick=()=>{view=workspaceGuideReturn;render()};
+ document.querySelectorAll('[data-guide-view]').forEach(button=>button.onclick=()=>{
+  view=button.dataset.guideView;
+  if(view.startsWith('ar-'))$('#ar-menu').open=true;
+  if(view.startsWith('report-'))$('#report-menu').open=true;
+  render();document.querySelector('#title').scrollIntoView({block:'start'});
+ });
+ $('#guide-search').oninput=event=>{
+  const words=event.target.value.normalize('NFKC').trim().toLocaleLowerCase('th-TH').split(/\s+/).filter(Boolean);
+  let matches=0;
+  workspaceGuideTopics.forEach(topic=>{
+   const element=$('#guide-topic-'+topic.id),text=[topic.title,topic.subtitle,...topic.steps,topic.notes].join(' ').normalize('NFKC').toLocaleLowerCase('th-TH');
+   element.hidden=!words.every(word=>text.includes(word));
+   if(!element.hidden){matches++;if(words.length)element.open=true}
+  });$('#guide-empty').hidden=matches>0;
+ };
+}
+function workspaceHelpLink(topic,label='วิธีใช้งาน'){return `<button type="button" class="text-help" onclick="openWorkspaceGuide('${topic}')">${label} ↗</button>`}
