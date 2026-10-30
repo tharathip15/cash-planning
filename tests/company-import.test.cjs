@@ -53,3 +53,24 @@ test('loading a workspace never resurrects cleared AR for a company still presen
  stored.rawSources.ar.rows=stored.rawSources.ar.rows.filter(r=>r.company!=='Novat');
  assert.equal(c.reportChooseInitial(bundled,stored),stored);
 });
+test('PF import keeps NV/TNP rows and preview identifies updated and retained companies',()=>{
+ const {c,XLSX,setInput,schemas}=setup();
+ for(const kind of ['sales','ar']){
+  const row={company:'PF',code:'C1',name:'โปรเฟส',bill:'B1',date:'2026-09-01',due:'2026-09-30',amount:200,balance:50},book=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(book,XLSX.utils.aoa_to_sheet([schemas[kind].map(f=>f[1]),schemas[kind].map(f=>row[f[0]]??'')]),'data');
+  setInput(kind,{book,sheet:'data',filename:'new-pf.xlsx',company:'PF'});c.kind=kind;vm.runInContext('rrAutoMap(kind)',c);
+ }
+ c.rrPreview();assert.equal(c.$('#rr-error').textContent,'');const plan=vm.runInContext('rrPlan',c);
+ assert.equal(plan.rawSources.sales.rows.length,3);assert.equal(plan.rawSources.ar.rows.find(r=>r.company==='โปรเฟส').balance,50);
+ for(const company of ['Novat','TNP'])for(const kind of ['sales','ar','receipts'])assert.equal(c.rrCompanyRowsSignature(plan.rawSources[kind].rows,company),c.rrCompanyRowsSignature(c.reportData.rawSources[kind].rows,company));
+ const html=c.rrCompanyImportSummary(plan);assert.match(html,/เก็บข้อมูลเดิม/);assert.match(html,/Novat/);assert.match(html,/TNP/);
+});
+test('commit refuses to remove or alter a company outside the uploaded file, before saving',()=>{
+ const {c}=setup(),previous=c.reportData;let saves=0;
+ c.localStorage={getItem:()=>null,setItem(){},removeItem(){}};c.view='overview';c.reportApplySnapshot=()=>saves++;
+ for(const mode of ['remove','change']){
+  const plan=structuredClone(previous);plan.companyUpdates={ar:['โปรเฟส']};
+  if(mode==='remove')plan.rawSources.ar.rows=plan.rawSources.ar.rows.filter(r=>r.company!=='Novat');else plan.rawSources.ar.rows.find(r=>r.company==='Novat').balance=99;
+  assert.throws(()=>c.rrCommitLinked(plan),/หยุดนำเข้า.*Novat/);assert.equal(c.reportData,previous);assert.equal(saves,0);
+ }
+});
