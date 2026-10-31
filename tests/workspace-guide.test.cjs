@@ -41,3 +41,14 @@ test('guide search finds instructions, opens matches and handles no results', ()
  get('#guide-search').oninput({ target: { value: '' } });
  assert.equal(get('#guide-topic-calendar').hidden, false);
 });
+test('calendar help opens its dedicated topic and returns to the originating calendar',()=>{
+ for(const view of ['ar-calendar','report-calendar']){
+  const {context,get}=setup();context.view=view;context.openWorkspaceGuide();assert.ok(get('#content').innerHTML.includes('id="guide-topic-'+view+'" open'));get('#guide-back').onclick();assert.equal(context.view,view);
+ }
+});
+test('guide searches find calendar date ranges, priority hearts, cost breakdowns and the updated navigation',()=>{
+ const {context,get}=setup();context.openWorkspaceGuide('start');
+ for(const [query,id]of [['ภาพรวมเงินสด','start'],['ต้นทุนขาย','calendar'],['ช่วงวันที่ หัวปฏิทิน','ar-calendar'],['🩷','ar-calendar'],['Invoice Date','report-calendar'],['ส่งออก Excel ปฏิทิน','report-calendar']]){
+  get('#guide-search').oninput({target:{value:query}});assert.equal(get('#guide-topic-'+id).hidden,false,query);
+ }
+});
