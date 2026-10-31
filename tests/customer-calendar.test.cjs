@@ -57,13 +57,13 @@ test('calendar renders the correct weekday offset, empty month and undated custo
  const html=c.customerCalendarHTML('ar',[{company:'PF',code:'C1',name:'A',date:'',outstanding:40}]);
  assert.equal((html.match(/data-customer-day="2026-02-/g)||[]).length,28);assert.ok(html.includes('data-customer-day="unset"'));assert.ok(html.includes('ไม่มีรายการในเดือนนี้'));assert.ok(!html.includes('aria-hidden="true"'));
 });
-test('day cards show only company counts of distinct outstanding customers; names appear in clicked details',()=>{
+test('day cards show signed debt amounts and distinct debtor counts; details reconcile credits',()=>{
  const c=runtime();c.arAsOf='2026-02-01';c.arDate=String;
  const records=[{company:'PF',code:'C1',name:'Private customer A',bill:'B1',date:'2026-02-01',outstanding:40},{company:'โปรเฟส',code:'C1',name:'Private customer A',bill:'B2',date:'2026-02-01',outstanding:20},{company:'PF',code:'C2',name:'Settled customer',date:'2026-02-01',outstanding:0},{company:'TNP',code:'C1',name:'Private customer B',date:'2026-02-01',outstanding:10},{company:'NV',code:'C1',name:'Credit note',date:'2026-02-01',outstanding:-10}];
  const html=c.customerCalendarHTML('ar',records),day=html.match(/<button[^>]*data-customer-day="2026-02-01"[\s\S]*?<\/button>/)[0];
- assert.ok(day.includes('PF = ยอดค้าง <strong>1</strong> ราย'));assert.ok(day.includes('TNP = ยอดค้าง <strong>1</strong> ราย'));assert.ok(day.includes('NV = ยอดค้าง <strong>0</strong> ราย'));assert.ok(!html.includes('Private customer'));assert.ok(!day.includes('ขาย '));
+ const text=day.replace(/<[^>]+>/g,' ').replace(/\s+/g,' ');assert.ok(text.includes('ยอดนัดรับรวม 60 บาท'));assert.ok(text.includes('PF 60 บาท 1 ราย'));assert.ok(text.includes('TNP 10 บาท 1 ราย'));assert.ok(text.includes('NV -10 บาท 0 ราย'));assert.ok(!html.includes('Private customer'));assert.ok(!day.includes('ขาย '));
  let detail;c.showCardDetail=(...args)=>detail=args;c.customerCalendarDetail('ar','2026-02-01',records);
- assert.ok(detail[2].includes('Private customer A'));assert.ok(detail[2].includes('Private customer B'));assert.ok(!detail[2].includes('Settled customer'));assert.equal(detail[3].rows.length,3);assert.equal(detail[3].rows.at(-1).outstanding,70);
+ assert.ok(detail[2].includes('Private customer A'));assert.ok(detail[2].includes('Private customer B'));assert.ok(!detail[2].includes('Settled customer'));assert.equal(detail[3].rows.length,4);assert.equal(detail[3].rows.at(-1).outstanding,60);
 });
 test('weekly summaries follow Sunday–Saturday, clip to the month and reconcile signed company amounts',()=>{
  const c=runtime(),records=[{company:'PF',code:'C1',bill:'1',date:'2026-10-01',sales:100,outstanding:40},{company:'PF',code:'C1',bill:'2',date:'2026-10-04',sales:200,outstanding:60},{company:'NV',code:'C1',bill:'3',date:'2026-10-31',outstanding:20},{company:'TNP',code:'C2',bill:'4',date:'2026-10-31',outstanding:-5},{company:'PF',code:'X',date:'2026-11-01',outstanding:999},{company:'PF',code:'Y',date:'',outstanding:888}];
@@ -78,12 +78,48 @@ test('both calendar pages include their weekly summary, with sales only on the s
  for(const html of [ar,report]){assert.ok(html.includes('สรุปรายสัปดาห์และรายเดือน'));assert.ok(html.includes('data-customer-summary-key="PF"'));assert.ok(html.includes('รวมเดือน'))}
  assert.ok(!ar.includes('data-customer-summary-key="sales"'));assert.ok(report.includes('data-customer-summary-key="sales"'));
 });
-test('report day shows combined sales and signed debt, with company amounts and unique debtor counts; tracking stays count-only',()=>{
+test('report day shows combined sales and signed debt, with company amounts and unique debtor counts; tracking shows debt amounts without sales',()=>{
  const c=runtime();c.arAsOf='2026-02-01';c.arDate=String;
  const records=[{company:'PF',code:'C1',name:'PF customer',bill:'B1',date:'2026-02-01',sales:100,outstanding:40},{company:'โปรเฟส',code:'C1',name:'PF customer',bill:'B2',date:'2026-02-01',sales:200,outstanding:20},{company:'TNP',code:'C1',name:'Paid sales customer',bill:'B1',date:'2026-02-01',sales:150,outstanding:0},{company:'NV',code:'C1',name:'NV customer',bill:'B1',date:'2026-02-01',outstanding:60},{company:'NV',code:'C2',name:'Credit note customer',bill:'CN1',date:'2026-02-01',outstanding:-10}];
  const report=c.customerCalendarHTML('report',records),card=report.match(/<button[^>]*data-customer-day="2026-02-01"[\s\S]*?<\/button>/)[0];
  const text=card.replace(/<[^>]+>/g,' ').replace(/\s+/g,' ');assert.ok(text.includes('ยอดขาย 450 บาท'));assert.ok(text.includes('ยอดค้างรวม 110 บาท'));
  assert.ok(text.includes('PF 60 บาท 1 ราย'));assert.ok(text.includes('TNP 0 บาท 0 ราย'));assert.ok(text.includes('NV 50 บาท 1 ราย'));assert.ok(card.includes('calendar-debt-row'));assert.ok(card.includes('calendar-amount red'));for(const name of ['PF customer','Paid sales customer','NV customer','Credit note customer'])assert.ok(!card.includes(name));
- const tracking=c.customerCalendarHTML('ar',records).match(/<button[^>]*data-customer-day="2026-02-01"[\s\S]*?<\/button>/)[0];assert.ok(tracking.includes('PF = ยอดค้าง <strong>1</strong> ราย'));assert.ok(!tracking.includes('บาท'));assert.ok(!tracking.includes('ยอดขาย'));
+ const tracking=c.customerCalendarHTML('ar',records).match(/<button[^>]*data-customer-day="2026-02-01"[\s\S]*?<\/button>/)[0];const trackingText=tracking.replace(/<[^>]+>/g,' ').replace(/\s+/g,' ');assert.ok(trackingText.includes('PF 60 บาท 1 ราย'));assert.ok(trackingText.includes('ยอดนัดรับรวม 110 บาท'));assert.ok(!tracking.includes('ยอดขาย'));
  let detail;c.showCardDetail=(...args)=>detail=args;c.customerCalendarDetail('report','2026-02-01',records);assert.equal(detail[3].rows.at(-1).sales,450);assert.equal(detail[3].rows.at(-1).outstanding,110);assert.ok(detail[2].includes('Paid sales customer'));assert.ok(detail[2].includes('Credit note customer'));
+});
+
+test('appointment cards show types, saved payment behavior and signed amounts; due-date view keeps its scope',()=>{
+ const c=runtime();c.arAsOf='2026-02-01';c.arDate=String;c.arOutstanding=r=>r.amount;
+ c.fixture={monthly:{rows:[[1,'PF','C1','','A','ขายส่ง'],[2,'NV','C1','','B','ขายปลีก']]},credit:{rows:[[1,'PF','C1','A','ทั่วไป']]}};vm.runInContext('reportData=fixture',c);
+ c.customerBehavior=r=>({paymentBehavior:r.sourceCompany==='PF'?'on_due':''});c.paymentBehaviors={'':'ยังไม่มีข้อมูล',on_due:'จ่ายตรงกำหนด'};
+ const bills=[{id:'1',sourceCompany:'PF',sourceCustomerCode:'C1',customer:'A',billNo:'B1',promiseDate:'2026-02-01',amount:40},{id:'2',sourceCompany:'PF',sourceCustomerCode:'C1',customer:'A',billNo:'B2',promiseDate:'2026-02-01',amount:20},{id:'3',sourceCompany:'NV',sourceCustomerCode:'C1',customer:'B',promiseDate:'2026-02-01',amount:10},{id:'4',sourceCompany:'TNP',sourceCustomerCode:'C2',customer:'C',amount:100}];
+ const records=c.customerCalendarRecords('ar',bills),html=c.customerCalendarHTML('ar',records),day=html.match(/<button[^>]*data-customer-day="2026-02-01"[\s\S]*?<\/button>/)[0],text=day.replace(/<[^>]+>/g,' ').replace(/\s+/g,' ');
+ assert.ok(text.includes('จ่ายตรงกำหนด 60 บาท · 1 ราย ประเภท: ทั่วไป'));assert.ok(text.includes('ยังไม่มีข้อมูล 10 บาท · 1 ราย ประเภท: ขายปลีก'));assert.ok(html.includes('ยังไม่ระบุวันที่'));assert.ok(!day.includes('100 บาท'));assert.equal(records[3].date,'');
+ let detail;c.showCardDetail=(...args)=>detail=args;c.customerCalendarDetail('ar','2026-02-01',records);assert.ok(detail[3].cols.some(r=>r.key==='customerType'));assert.ok(detail[3].cols.some(r=>r.key==='behaviorLabel'));assert.equal(detail[3].rows.find(r=>r.company==='PF').outstanding,60);
+ assert.ok(c.customerCalendarRangeExport('ar',bills).cols.some(r=>r.key==='behaviorLabel'));
+ vm.runInContext("customerCalendarState.ar.basis='dueDate'",c);assert.ok(!c.customerCalendarHTML('ar',records).includes('calendar-promise-breakdown'));
+});
+
+test('appointment companies separate shared behaviors, combine customer types and reconcile unique counts and credits',()=>{
+ const c=runtime();c.arAsOf='2026-02-01';c.arDate=String;
+ const rows=[{company:'PF',code:'C1',date:'2026-02-01',bill:'B1',outstanding:40,customerType:'ขายส่ง',behaviorLabel:'จ่ายตรงกำหนด'},{company:'PF',code:'C1',date:'2026-02-01',bill:'B2',outstanding:20,customerType:'ขายส่ง',behaviorLabel:'จ่ายตรงกำหนด'},{company:'PF',code:'C2',date:'2026-02-01',outstanding:30,customerType:'ขายปลีก',behaviorLabel:'จ่ายตรงกำหนด'},{company:'PF',code:'CN',date:'2026-02-01',outstanding:-10,behaviorLabel:'จ่ายตรงกำหนด'},{company:'NV',code:'C1',date:'2026-02-01',outstanding:200,behaviorLabel:'จ่ายตรงกำหนด'}];
+ const html=c.customerCalendarHTML('ar',rows),day=html.match(/<button[^>]*data-customer-day="2026-02-01"[\s\S]*?<\/button>/)[0];
+ const companies=[...day.matchAll(/data-promise-company="([^"]+)"[\s\S]*?<\/div>/g)],text=markup=>markup.replace(/<[^>]+>/g,' ').replace(/\s+/g,' ');
+ assert.equal(companies.length,3);const pf=text(companies.find(r=>r[1]==='PF')[0]),nv=text(companies.find(r=>r[1]==='NV')[0]);
+ assert.ok(pf.includes('PF 80 บาท 2 ราย'));assert.ok(pf.includes('จ่ายตรงกำหนด 80 บาท · 2 ราย'));assert.ok(pf.includes('ขายส่ง / ขายปลีก'));assert.ok(!pf.includes('200 บาท'));assert.ok(nv.includes('NV 200 บาท 1 ราย'));assert.ok(nv.includes('จ่ายตรงกำหนด 200 บาท · 1 ราย'));assert.ok(text(day).includes('ยอดนัดรับรวม 280 บาท'));assert.ok(!day.includes('ยอดค้าง'));
+ assert.ok(html.includes('PF · ยอดนัดรับ'));assert.ok(html.includes('ยอดนัดรับเดือนนี้ 280 บาท'));
+ vm.runInContext("customerCalendarState.ar.basis='dueDate'",c);const due=c.customerCalendarHTML('ar',rows);assert.ok(due.includes('PF · ยอดค้าง'));assert.ok(!due.includes('ยอดนัดรับรวม'));
+});
+
+test('weekly and monthly appointment behavior summaries reconcile company amounts and deduplicate customers within each period',()=>{
+ const c=runtime();c.arDate=String;
+ const records=[{company:'PF',code:'A',date:'2026-10-02',bill:'B1',outstanding:40,behaviorLabel:'จ่ายตรงกำหนด'},{company:'PF',code:'A',date:'2026-10-03',bill:'B2',outstanding:20,behaviorLabel:'จ่ายตรงกำหนด'},{company:'PF',code:'A',date:'2026-10-05',bill:'B3',outstanding:30,behaviorLabel:'จ่ายตรงกำหนด'},{company:'PF',code:'CN',date:'2026-10-03',outstanding:-10,behaviorLabel:'จ่ายตรงกำหนด'},{company:'PF',code:'B',date:'2026-10-02',outstanding:50,behaviorLabel:'ต้องติดตามก่อนจ่าย'},{company:'NV',code:'A',date:'2026-10-02',outstanding:200,behaviorLabel:'จ่ายตรงกำหนด'},{company:'TNP',code:'C',date:'2026-10-02',outstanding:5},{company:'PF',code:'X',date:'',outstanding:999},{company:'PF',code:'Y',date:'2026-11-01',outstanding:999}];
+ const summary=c.customerCalendarSummary('2026-10',records),first=summary.weeks[0],month=summary.month;
+ assert.equal(first.behaviors.PF.find(r=>r.label==='จ่ายตรงกำหนด').outstanding,50);assert.equal(first.behaviors.PF.find(r=>r.label==='จ่ายตรงกำหนด').customers,1);
+ assert.equal(month.behaviors.PF.find(r=>r.label==='จ่ายตรงกำหนด').outstanding,80);assert.equal(month.behaviors.PF.find(r=>r.label==='จ่ายตรงกำหนด').customers,1);assert.equal(month.behaviors.NV[0].outstanding,200);assert.equal(month.behaviors.TNP[0].label,'ยังไม่มีข้อมูล');
+ for(const row of [...summary.weeks,month])for(const company of ['PF','TNP','NV'])assert.equal(row.behaviors[company].reduce((n,r)=>n+r.outstanding,0),row[company]);
+ const html=c.customerCalendarSummaryHTML('ar','2026-10',records);assert.ok(html.includes('calendar-summary-behaviors'));assert.ok(html.includes('data-customer-summary-behavior="จ่ายตรงกำหนด"'));assert.ok(html.includes('80 บาท · 1 ราย'));assert.ok(html.includes('ยังไม่มีข้อมูล'));assert.ok(!html.includes('999'));
+ const selected=c.customerCalendarSummaryDetailRows(records,'2026-10-01','2026-10-03','PF','จ่ายตรงกำหนด');assert.equal(selected.length,2);assert.equal(selected.reduce((n,r)=>n+r.outstanding,0),50);assert.ok(selected.every(r=>r.company==='PF'));assert.equal(c.customerCalendarSummaryDetailRows(records,'2026-10-01','2026-10-03','TNP','ยังไม่มีข้อมูล').length,1);
+ const clipped=c.customerCalendarSummary('2026-10',records,{start:'2026-10-03',end:'2026-10-03'});assert.equal(clipped.month.behaviors.PF[0].outstanding,10);
+ vm.runInContext("customerCalendarState.ar.basis='dueDate'",c);assert.ok(!c.customerCalendarSummaryHTML('ar','2026-10',records).includes('calendar-summary-behaviors'));assert.ok(!c.customerCalendarSummaryHTML('report','2026-10',records).includes('calendar-summary-behaviors'));
 });

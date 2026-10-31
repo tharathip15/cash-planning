@@ -12,7 +12,7 @@ function setup(){
 const invoice=(values={})=>({id:'A',sourceCompany:'PF',sourceCustomerCode:'C1',customer:'Customer',billNo:'B1',amount:1000,priorPaid:0,dueDate:'2026-09-28',insured:'no',logs:[],...values});
 test('task view is first and default; policy work carries forward without changing invoice dates',()=>{
  const c=setup(),i=invoice({promiseDate:'2026-10-30'}),before=JSON.stringify(i),events=c.arTaskCalendarEvents([i]);
- assert.equal(vm.runInContext('arCalendarTab',c),'tasks');assert.ok(c.arCalendarTabs().indexOf('งานติดตามหนี้')<c.arCalendarTabs().indexOf('ยอดค้าง / วันนัดรับ'));
+ assert.equal(vm.runInContext('arCalendarTab',c),'tasks');assert.ok(c.arCalendarTabs().indexOf('งานติดตามหนี้')<c.arCalendarTabs().indexOf('ยอดค้าง'));
  const letter=events.find(e=>e.key==='l1');assert.equal(letter.date,'2026-11-02');assert.equal(letter.deadline,'2026-11-02');assert.equal(letter.type,'letter');assert.equal(letter.status,'action');
  const missed=events.find(e=>e.key==='missed');assert.equal(missed.date,'2026-11-02');assert.equal(missed.status,'late');assert.equal(missed.deadline,'2026-10-30');
  const late=events.find(e=>e.key==='verify');assert.equal(late.date,'2026-11-02');assert.equal(late.status,'late');assert.equal(JSON.stringify(i),before);
@@ -44,9 +44,9 @@ test('task calendar export matches month and filters; daily logs remove the pend
  vm.runInContext("Object.assign(arTaskCalendarState,{month:'2026-11',type:'letter',status:'done'})",c);const spec=c.arTaskCalendarExportSpec();assert.equal(spec.rows.length,1);assert.equal(spec.rows[0].date,'2026-11-01');assert.equal(spec.rows[0].state,'ทำแล้ว');
 });
 test('calendar view dropdown changes the calendar data and keeps the task view as default',()=>{
- const c=setup(),input={value:'balances'};let renders=0;c.$=()=>input;c.arRender=()=>renders++;
+ const c=setup(),input={value:'outstanding'};let renders=0;c.$=()=>input;c.arRender=()=>renders++;
  assert.ok(c.arCalendarTabs().includes('value="tasks" selected'));assert.ok(!c.arCalendarTabs().includes('role="tab"'));
- c.bindArCalendarTabs();input.onchange();assert.equal(vm.runInContext('arCalendarTab',c),'balances');assert.equal(renders,1);
+ c.bindArCalendarTabs();input.onchange();assert.equal(vm.runInContext('arCalendarTab',c),'outstanding');assert.equal(renders,1);
  input.value='tasks';input.onchange();assert.equal(vm.runInContext('arCalendarTab',c),'tasks');assert.equal(renders,2);
  input.value='invalid';input.onchange();assert.equal(vm.runInContext('arCalendarTab',c),'tasks');assert.equal(renders,2);
 });
@@ -81,4 +81,11 @@ test('daily priority badges count pending work once and carry policy priority in
 test('task range applies to work counts and export across month boundaries without changing report range',()=>{
  const c=setup();c.arInvoices=[invoice({letter1:'2026-10-31',contactDate:'2026-11-02',logs:[{date:'2026-11-03',by:'A',result:'Follow up'}],priorPaid:1000})];
  assert.equal(c.calendarApplyRange('tasks','2026-10-31','2026-11-02'),true);const spec=c.arTaskCalendarExportSpec();assert.equal(spec.rows.length,2);assert.ok(spec.rows.every(r=>r.date>='2026-10-31'&&r.date<='2026-11-02'));assert.equal(vm.runInContext('calendarRanges.report',c),null);
+});
+test('outstanding and appointment views use different dates and remember independent ranges',()=>{
+ const c=setup(),bill=invoice({dueDate:'2026-10-15',promiseDate:'2026-11-20'});
+ assert.equal(c.arCalendarSelectView('outstanding'),true);assert.equal(c.customerCalendarRecords('ar',[bill])[0].date,'2026-10-15');c.calendarApplyRange('ar','2026-10-01','2026-10-31');
+ c.arCalendarSelectView('promise');assert.equal(c.customerCalendarRecords('ar',[bill])[0].date,'2026-11-20');c.calendarApplyRange('ar','2026-11-01','2026-11-30');
+ c.arCalendarSelectView('outstanding');assert.equal(vm.runInContext('calendarRanges.ar.start',c),'2026-10-01');assert.equal(c.customerCalendarRecords('ar',[bill])[0].date,'2026-10-15');
+ c.arCalendarSelectView('promise');assert.equal(vm.runInContext('calendarRanges.ar.start',c),'2026-11-01');assert.equal(c.customerCalendarRecords('ar',[bill])[0].date,'2026-11-20');assert.ok(!c.arCalendarTabs().includes('ยอดค้าง / วันนัดรับ'));
 });

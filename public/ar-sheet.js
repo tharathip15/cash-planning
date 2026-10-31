@@ -4,7 +4,7 @@ function arStorePending(){try{localStorage.setItem('profess-ar-sheet-v1',JSON.st
 function arColumnGroup(key){return ['amount','priorPaid','outstanding'].includes(key)?'money':['dueDate','promiseDate','period','certainty','defaultDate'].includes(key)?'schedule':['letter1','letter2','letter3','claimDate','insured','debtorStatus'].includes(key)?'followup':'identity'}
 let arColumnView='original';
 function arDisplayColumns(){
- const fields=[...arSheetColumns.map(c=>c[0]).filter(k=>k!=='sourceDocDate'),'sourceDocDate'];
+ const fields=arSheetColumns.map(c=>c[0]).filter(k=>k!=='sourceDocDate');fields.splice(fields.indexOf('deliveryNo')+1,0,'sourceDocDate');
  const widths={sourceCompany:65,sourceCustomerCode:80,shipmentDate:110,deliveryNo:120,billNo:90,customer:100,paymentBehavior:165,behaviorNote:180,creditTerm:80,amount:95,priorPaid:130,dueDate:115,promiseDate:115,period:90,certainty:105,defaultDate:115,insured:115,debtorStatus:160};
  return fields.map(key=>{const c=arSheetColumns.find(c=>c[0]===key);return [...c.slice(0,3),widths[key]||(c[2]==='date'?115:c[3])]});
 }

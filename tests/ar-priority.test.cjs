@@ -22,6 +22,6 @@ test('priority differentiates missed appointments, overdue tasks, upcoming work 
  vm.runInContext("arPriorityFilter='urgent'",c);assert.equal(c.arPriorityMatches(invoice),false);assert.equal(c.arPriorityMatches({...invoice,promiseDate:'2026-10-30'}),true);
 });
 test('original worksheet order starts with company and code, with all fields available together',()=>{
- const c=setup(),all=c.arDisplayColumns();assert.deepEqual(Array.from(all.slice(0,8),col=>col[0]),['sourceCompany','sourceCustomerCode','shipmentDate','deliveryNo','billNo','customer','paymentBehavior','behaviorNote']);
- assert.equal(all.length,23);assert.equal(new Set(all.map(col=>col[0])).size,23);assert.equal(all.at(-1)[0],'sourceDocDate');assert.equal(c.arColumnViewHTML(),'');
+ const c=setup(),all=c.arDisplayColumns();assert.deepEqual(Array.from(all.slice(0,8),col=>col[0]),['sourceCompany','sourceCustomerCode','shipmentDate','deliveryNo','sourceDocDate','billNo','customer','paymentBehavior']);
+ assert.equal(all.length,23);assert.equal(new Set(all.map(col=>col[0])).size,23);assert.equal(all.at(-1)[0],'debtorStatus');assert.equal(c.arColumnViewHTML(),'');
 });

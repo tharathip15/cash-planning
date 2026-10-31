@@ -557,6 +557,18 @@ aside nav button,:is(#cash-menu,#ar-menu) button,#report-menu button,nav .guide-
 .table-workbench:has(.sheet)>.workspace-table-scroll,
 .table-workbench:has(.ar-sheet)>.workspace-table-scroll{scroll-padding-left:0;scroll-behavior:auto}
 
+/* Invoice fields share a color; customer identity remains visible while scrolling. */
+.ar-columns-original.workspace-data-table.ar-sheet thead th[data-ar-column=sourceDocDate],
+.ar-columns-original.workspace-data-table.ar-sheet thead th[data-ar-column=billNo]{background:#fbe8d4!important;color:#936332}
+.ar-columns-original.workspace-data-table.ar-sheet tbody tr:nth-child(n) td[data-ar-column=sourceDocDate],
+.ar-columns-original.workspace-data-table.ar-sheet tbody tr:nth-child(n) td[data-ar-column=billNo]{background:#fff5e9!important;color:#875e36}
+.ar-columns-original.workspace-data-table.ar-sheet tbody tr:nth-child(even) td[data-ar-column=sourceDocDate],
+.ar-columns-original.workspace-data-table.ar-sheet tbody tr:nth-child(even) td[data-ar-column=billNo]{background:#fcefdc!important}
+.ar-columns-original.workspace-data-table.ar-sheet thead th[data-ar-column=customer],
+.ar-columns-original.workspace-data-table.ar-sheet tbody td[data-ar-column=customer]{position:sticky!important;inset:auto!important;left:0!important;z-index:3!important;box-shadow:3px 0 5px #69758b26}
+.ar-columns-original.workspace-data-table.ar-sheet thead th[data-ar-column=customer]{z-index:6!important}
+.ar-sheet-panel:has(.ar-columns-original) .workspace-table-scroll{scroll-padding-left:var(--ar-customer-width,170px)}
+
 /* Extra compact rows for the payment worksheet. */
 .cash-sheet-compact.sheet-expenses.workspace-data-table tbody td{height:29px;padding:0;line-height:1.25}
 .cash-sheet-compact.sheet-expenses.workspace-data-table input,
@@ -675,13 +687,28 @@ main:has(.calendar-section){max-width:none;min-width:0}
 .customer-calendar .calendar-company{font-size:10px;font-weight:600}
 .customer-calendar .calendar-company-amount{white-space:nowrap;text-align:right;font-size:11px;color:#a34d6a;font-variant-numeric:tabular-nums}
 .customer-calendar .calendar-company-count{white-space:nowrap;font-size:10px;text-align:right}
+.customer-calendar .calendar-promise-breakdown{margin-top:6px;padding-top:6px;border-top:1px solid #e3d9ed;text-align:left}
+.customer-calendar .day .calendar-promise-heading{display:block;white-space:normal;color:#74618e;font-weight:600;font-size:10px}
+.customer-calendar .day .calendar-promise-segment{display:flex;flex-direction:column;gap:3px;white-space:normal;overflow-wrap:anywhere;padding:5px 0;color:#74618e;line-height:1.5}
+.customer-calendar .calendar-promise-segment strong{font-size:11px;font-variant-numeric:tabular-nums}
+.customer-calendar .day .calendar-promise-empty{display:block;white-space:normal;color:#998a9d;padding-top:5px}
+.customer-calendar .calendar-promise-company{padding:5px 0;border-bottom:1px solid #e3d9ed}
+.customer-calendar .calendar-promise-company:last-child{border-bottom:0}
+.customer-calendar .calendar-promise-company .calendar-debt-row{border-bottom:0}
+.customer-calendar .calendar-promise-company .calendar-promise-segment{padding-left:7px;border-left:2px solid #e3d9ed;margin-top:4px}
+.customer-calendar .calendar-promise-types{font-size:9px;color:#8e819a}
+.customer-calendar .calendar-summary-behaviors{display:grid;gap:5px;margin-top:6px;text-align:left;white-space:normal}
+.customer-calendar .calendar-summary-behavior{display:flex;flex-direction:column;align-items:flex-start;gap:3px;width:100%;padding:6px 8px;border:1px solid #e3d9ed;border-radius:6px;background:#f8f5fc;color:#74618e;text-align:left;white-space:normal;overflow-wrap:anywhere;font-size:11px;line-height:1.5;cursor:pointer}
+.customer-calendar .calendar-summary-behavior strong{font-size:11px;font-variant-numeric:tabular-nums}
+.customer-calendar .calendar-summary-behavior:hover,.customer-calendar .calendar-summary-behavior:focus-visible{background:#eee7f7;outline:2px solid #bba4d0;outline-offset:1px}
+.customer-calendar .calendar-summary-empty{color:#998a9d;font-size:10px}
 .customer-calendar .calendar-debt-row.is-zero,.customer-calendar .calendar-debt-row.is-zero strong{color:#a18c95}
 .customer-calendar-ar .customer-calendar-company,.customer-calendar-ar .customer-calendar-company strong{color:#a34d6a}
 .customer-calendar .calendar-summary .red{color:#a34d6a}
 .customer-calendar .calendar-summary-value:hover,.customer-calendar .calendar-summary-value:focus-visible{outline-color:#cc91a5;background:#fff0f5}
 .calendar-section{container-type:inline-size}
 .calendar-section:not(.customer-calendar) .day small{white-space:normal}
-@container(max-width:1250px){.customer-calendar-report .day .calendar-debt-row{grid-template-columns:minmax(0,1fr) auto;row-gap:2px}.customer-calendar-report .calendar-company{grid-column:1;grid-row:1}.customer-calendar-report .calendar-company-count{grid-column:2;grid-row:1}.customer-calendar-report .calendar-company-amount{grid-column:1/-1;grid-row:2}}
+@container(max-width:1250px){.customer-calendar .day .calendar-debt-row{grid-template-columns:minmax(0,1fr) auto;row-gap:2px}.customer-calendar .calendar-company{grid-column:1;grid-row:1}.customer-calendar .calendar-company-count{grid-column:2;grid-row:1}.customer-calendar .calendar-company-amount{grid-column:1/-1;grid-row:2}}
 @media(max-width:1100px){.customer-calendar-report .calendar{min-width:1050px}.calendar-section .calendar{padding:9px;gap:6px}.calendar-section .day{padding:8px}.calendar-section .panelhead{padding:14px}.customer-calendar-note{padding:0 14px;font-size:11px}}
 @media(max-width:650px){.calendar-section .calendar{min-width:840px}.customer-calendar-report .calendar{min-width:1050px}.calendar-section .panelhead{align-items:flex-start;gap:10px}.calendar-section .day small{font-size:11px}.customer-calendar-controls{gap:5px}.customer-calendar-controls input,.customer-calendar-controls select{min-width:115px}.customer-calendar-controls .secondary{padding:6px 10px}.customer-calendar .calendar-summary-heading{align-items:flex-start}}
 .ar-calendar-tabs{margin:10px 0 14px}.ar-task-metrics{margin:10px 0;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}.ar-task-metrics>div{padding:12px 16px}.ar-task-metrics strong{font-size:22px}.ar-task-filters{margin:8px 0}.ar-task-calendar .calendar{background:#fcfafb}.ar-task-calendar .day{background:#fffafb;gap:5px;border-color:#eadde3}.ar-task-calendar .day.is-today{outline:2px solid #a77c99;outline-offset:-2px}.ar-task-calendar .ar-task-chip{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:2px 5px;align-items:baseline;width:100%;padding:6px;border:1px solid #e6dee9;border-radius:7px;background:#f2eef8;color:#715a8f;text-align:left;font-size:11px}.ar-task-calendar .ar-task-chip strong{font-size:11px;white-space:nowrap;font-variant-numeric:tabular-nums}.ar-task-calendar .ar-task-chip small{grid-column:1/-1;font-size:10px;margin:0}.ar-task-calendar .ar-task-chip.promise{background:#e5f3ed;color:#337b62;border-color:#cae4d8}.ar-task-calendar .ar-task-chip.letter{background:#fff1dc;color:#956528;border-color:#efddbb}.ar-task-calendar .ar-task-chip.missed{background:#f9e2eb;color:#a34d6a;border-color:#e7bcca}.ar-task-calendar .ar-task-chip.done{background:#eaf2ef;color:#51796a;border-color:#d6e5de}.ar-task-calendar .ar-task-chip:hover{filter:brightness(.97)}.ar-task-calendar .ar-task-chip:focus-visible{outline:2px solid #9274ad;outline-offset:1px}.ar-task-calendar .ar-task-empty{color:#ae9ba6;font-size:10px}.ar-task-calendar .calendar-summary th small{display:block}.ar-task-calendar .calendar-summary td,.ar-task-calendar .calendar-summary th{padding:10px;font-size:11px}.ar-task-calendar .calendar-summary td.money{text-align:right}

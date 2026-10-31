@@ -3,7 +3,7 @@ let arCalendarTab='tasks';
 const arTaskCalendarState={month:'',company:'all',type:'all',owner:'all',status:'all'};
 const arTaskTypes={promise:'นัดรับเงิน',phone:'โทร / ติดต่อ',letter:'หนังสือแจ้ง',missed:'ผิดนัด',other:'งานติดตามอื่น'};
 const arTaskCompletionFields={verify:'verifiedDate',contact:'contactDate',l1:'letter1',l2:'letter2',l3:'letter3',lock:'lockDate','insurance-prepare':'insurancePreparedDate','insurance-claim':'claimDate',escalate:'l2ReceivedDate','l2-negotiate':'l2NegotiatedDate'};
-function arCalendarTabs(){return `<label class="ar-calendar-view-filter">ข้อมูลในปฏิทิน<select id="ar-calendar-view" aria-label="ข้อมูลในปฏิทิน">${[['tasks','งานติดตามหนี้'],['balances','ยอดค้าง / วันนัดรับ']].map(([key,label])=>`<option value="${key}" ${arCalendarTab===key?'selected':''}>${label}</option>`).join('')}</select></label>`}
+function arCalendarTabs(){return `<label class="ar-calendar-view-filter">ข้อมูลในปฏิทิน<select id="ar-calendar-view" aria-label="ข้อมูลในปฏิทิน">${[['tasks','งานติดตามหนี้'],['outstanding','ยอดค้าง'],['promise','วันนัดรับเงิน']].map(([key,label])=>`<option value="${key}" ${arCalendarTab===key?'selected':''}>${label}</option>`).join('')}</select></label>`}
 
 function arTaskCalendarToolbarHTML(){return `<section class="ar-calendar-toolbar" aria-label="ค้นหาและประเมินงานติดตามหนี้"><div class="ar-calendar-toolbar-actions"><button type="button" class="secondary" id="ar-new">เพิ่มบิลด้วยฟอร์ม</button><button type="button" class="secondary" id="ar-notice-open">แจ้งเตือนงาน (${arNoticeList().length})</button></div><div class="ar-calendar-toolbar-search"><label>ค้นหาลูกค้า / บิล<input id="ar-search" type="search" placeholder="ค้นหาข้อมูลทุกคอลัมน์" value="${esc(arSearch)}"></label><label>ค้นหาจาก${searchSelectHTML('ar-search-column',arSearchColumnsMap(),arSearchColumn)}</label></div><div class="ar-calendar-toolbar-date"><label>ประเมินงาน ณ วันที่<input id="ar-asof" type="date" value="${arAsOf}"></label><button type="button" class="secondary" id="ar-today">วันนี้</button></div></section>`}
 function arTaskCalendarInvoices(){return arInvoices.filter(i=>(typeof sourceInvoiceVisible!=='function'||sourceInvoiceVisible(i))&&(typeof arPriorityMatches!=='function'||arPriorityMatches(i))&&(typeof arInvoiceMatch!=='function'||arInvoiceMatch(i)))}
@@ -74,7 +74,16 @@ function arTaskCalendarOpen(events,title,page=0){
  document.querySelectorAll('[data-ar-task-invoice]').forEach(b=>b.onclick=()=>{$('#card-detail').close();arOpenDetail(b.dataset.arTaskInvoice)});
  document.querySelectorAll('[data-ar-task-edit]').forEach(b=>b.onclick=()=>{$('#card-detail').close();arOpenInvoice(b.dataset.arTaskEdit)});
 }
-function bindArCalendarTabs(){const input=$('#ar-calendar-view');if(input)input.onchange=()=>{if(!['tasks','balances'].includes(input.value))return;arCalendarTab=input.value;arRender()}}
+const arCalendarBalanceStates={outstanding:{month:'',range:null},promise:{month:'',range:null}};
+function arCalendarSelectView(value){
+ if(!['tasks','outstanding','promise'].includes(value))return false;
+ if(arCalendarBalanceStates[arCalendarTab])arCalendarBalanceStates[arCalendarTab]={month:customerCalendarState.ar.month,range:calendarRanges.ar};
+ arCalendarTab=value;
+ if(arCalendarBalanceStates[value]){customerCalendarState.ar.basis=value==='outstanding'?'dueDate':'promiseDate';customerCalendarState.ar.month=arCalendarBalanceStates[value].month;calendarRanges.ar=arCalendarBalanceStates[value].range}
+ return true;
+}
+function bindArCalendarTabs(){const input=$('#ar-calendar-view');if(input)input.onchange=()=>{if(arCalendarSelectView(input.value))arRender()}}
+
 
 function bindArTaskCalendar(){
  const s=arTaskCalendarState;
