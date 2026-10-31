@@ -17,6 +17,12 @@ function setup(){
  vm.runInContext("reportData=fixture;reportState.monthly.from='256909';reportState.monthly.to='256910';customerBehaviorProfiles={'customer:pf|C1':{paymentBehavior:'usually_late'},'customer:nv|C1':{paymentBehavior:'on_due'}}",c);
  return c;
 }
+test('monthly customer code, customer and salesperson order changes presentation and Excel without moving source values',()=>{
+ const c=setup(),before=JSON.stringify(c.fixture.monthly.rows),columns=c.reportColumns('monthly');
+ assert.deepEqual(Array.from(columns.slice(0,5),col=>col.key),['c0','c1','c2','c4','c3']);
+ const spec=c.reportExportSpec();assert.deepEqual(Array.from(spec.cols.slice(2,5),col=>col.key),['c2','c4','c3']);
+ assert.equal(spec.rows[0].c2,'C1');assert.equal(spec.rows[0].c4,'Customer');assert.equal(spec.rows[0].c3,'Sales');assert.equal(JSON.stringify(c.fixture.monthly.rows),before);
+});
 test('overdue filter respects months, live settlements and debtor exclusions',()=>{
  const c=setup();vm.runInContext("reportState.monthly.overdue='yes'",c);
  assert.equal(c.reportRows().length,1);
