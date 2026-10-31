@@ -1,4 +1,13 @@
 /* Cash supplier envelopes and calendar totals share the same effective amounts. */
+function calendarExpenseBreakdown(rows){
+ const totals={inventory:0,expense:0,unset:0};
+ for(const row of rows){if(row.type!=='out')continue;const key=['inventory','expense'].includes(row.expenseType)?row.expenseType:'unset';totals[key]+=amount(row)}
+ return totals;
+}
+function calendarExpenseBreakdownHTML(rows){
+ const totals=calendarExpenseBreakdown(rows);
+ return `<div class="calendar-expense-breakdown" aria-label="แยกยอดจ่ายตามประเภท"><small><span>ต้นทุนขาย</span><strong>${money(totals.inventory)}</strong></small><small><span>ค่าใช้จ่าย</span><strong>${money(totals.expense)}</strong></small>${totals.unset?`<small class="unclassified"><span>ยังไม่ระบุประเภท</span><strong>${money(totals.unset)}</strong></small>`:''}</div>`;
+}
 function isCashBudget(row){return row.type==='out'&&row.category==='cash'&&(row.cashBudget===true||Number(row.id)<=100000&&String(row.name).trim()==='ซัพเงินสด')}
 function cashBudgetDemand(row,source){
  let prior=0;
@@ -42,19 +51,19 @@ function calendarMonthSummary(month,source){
   const week=weeks.get(key);week.end=date;week.rows.push(...rows.filter(x=>x.date===date));
   day.setUTCDate(day.getUTCDate()+1);date=day.toISOString().slice(0,10);
  }
- const summarize=(label,group)=>({label,start:group.start,end:group.end,income:mainIncome(group.rows),expense:sum(group.rows,'out'),uncertain:uncertainIncome(group.rows),net:mainIncome(group.rows)-sum(group.rows,'out')});
+ const summarize=(label,group)=>({label,start:group.start,end:group.end,income:mainIncome(group.rows),expense:sum(group.rows,'out'),uncertain:uncertainIncome(group.rows),net:mainIncome(group.rows)-sum(group.rows,'out'),inventory:calendarExpenseBreakdown(group.rows).inventory,operatingExpense:calendarExpenseBreakdown(group.rows).expense});
  return {weeks:[...weeks.values()].map((week,i)=>summarize('สัปดาห์ '+(i+1),week)),month:summarize('รวมเดือน',{start:from,end:to,rows})};
 }
 function calendarSummaryHTML(month){
  const summary=calendarMonthSummary(month,dashboardRows());
- const cells=row=>['income','expense','net','uncertain'].map(key=>`<td class="money ${key==='expense'?'red':key==='uncertain'?'pending-total':key==='net'&&row.net<0?'red':'green'}"><button type="button" class="calendar-summary-value" data-calendar-summary-start="${row.start}" data-calendar-summary-end="${row.end}" data-calendar-summary-key="${key}" aria-label="${row.label} · ${key==='income'?'รับในแผนหลัก':key==='expense'?'จ่ายรวม':key==='net'?'รับลบจ่าย':'รอรับยืนยัน'} · ดูรายละเอียด">${money(row[key])}</button></td>`).join('');
- return `<div class="calendar-summary"><div class="calendar-summary-heading"><h3>สรุปรายสัปดาห์และรายเดือน</h3><span>${shortDate(summary.month.start)} – ${shortDate(summary.month.end)}</span></div><div class="scroll"><table><thead><tr><th>ช่วงวันที่</th><th class="money">รับในแผนหลัก</th><th class="money">จ่ายรวม</th><th class="money">รับ − จ่าย</th><th class="money">รอรับยืนยัน</th></tr></thead><tbody>${summary.weeks.map(row=>`<tr><th scope="row"><b>${row.label}</b><small>${shortDate(row.start)} – ${shortDate(row.end)}</small></th>${cells(row)}</tr>`).join('')}</tbody><tfoot><tr><th scope="row">รวมเดือน<small>เฉพาะช่วงวันที่เลือก</small></th>${cells(summary.month)}</tr></tfoot></table></div></div>`;
+ const cells=row=>['income','expense','inventory','operatingExpense','net','uncertain'].map(key=>`<td class="money ${['expense','inventory','operatingExpense'].includes(key)?'red':key==='uncertain'?'pending-total':key==='net'&&row.net<0?'red':'green'}"><button type="button" class="calendar-summary-value" data-calendar-summary-start="${row.start}" data-calendar-summary-end="${row.end}" data-calendar-summary-key="${key}" aria-label="${row.label} · ${key==='income'?'รับในแผนหลัก':key==='expense'?'จ่ายรวม':key==='inventory'?'ต้นทุนขาย':key==='operatingExpense'?'ค่าใช้จ่าย':key==='net'?'รับลบจ่าย':'รอรับยืนยัน'} · ดูรายละเอียด">${money(row[key])}</button></td>`).join('');
+ return `<div class="calendar-summary"><div class="calendar-summary-heading"><h3>สรุปรายสัปดาห์และรายเดือน</h3><span>${shortDate(summary.month.start)} – ${shortDate(summary.month.end)}</span></div><div class="scroll"><table><thead><tr><th>ช่วงวันที่</th><th class="money">รับในแผนหลัก</th><th class="money">จ่ายรวม</th><th class="money">ต้นทุนขาย</th><th class="money">ค่าใช้จ่าย</th><th class="money">รับ − จ่าย</th><th class="money">รอรับยืนยัน</th></tr></thead><tbody>${summary.weeks.map(row=>`<tr><th scope="row"><b>${row.label}</b><small>${shortDate(row.start)} – ${shortDate(row.end)}</small></th>${cells(row)}</tr>`).join('')}</tbody><tfoot><tr><th scope="row">รวมเดือน<small>เฉพาะช่วงวันที่เลือก</small></th>${cells(summary.month)}</tr></tfoot></table></div></div>`;
 }
 function bindCashCalendar(){
  const pending=document.querySelector('#overview-pending');if(pending)pending.onclick=()=>showCashCard('เงินรับรอยืนยัน',dashboardRows().filter(x=>x.type==='in'&&x.certainty==='uncertain'));
  document.querySelectorAll('[data-calendar-summary-start]').forEach(el=>el.onclick=()=>{
   const {calendarSummaryStart:start,calendarSummaryEnd:end,calendarSummaryKey:key}=el.dataset;
-  const rows=dashboardRows().filter(x=>x.date>=start&&x.date<=end).filter(x=>key==='income'?eligible(x):key==='expense'?x.type==='out':key==='uncertain'?x.type==='in'&&x.certainty==='uncertain':eligible(x)||x.type==='out');
+  const rows=dashboardRows().filter(x=>x.date>=start&&x.date<=end).filter(x=>key==='income'?eligible(x):key==='expense'?x.type==='out':key==='inventory'?x.type==='out'&&x.expenseType==='inventory':key==='operatingExpense'?x.type==='out'&&x.expenseType==='expense':key==='uncertain'?x.type==='in'&&x.certainty==='uncertain':eligible(x)||x.type==='out');
   showCashCard(el.getAttribute('aria-label').replace(' · ดูรายละเอียด',''),rows,shortDate(start)+' – '+shortDate(end));
  });
 }

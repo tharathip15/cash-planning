@@ -35,6 +35,13 @@ test('finalized budget records retain their confirmed amounts',()=>{
  assert.equal(c.effective(b),2500000);
  assert.equal(c.isCashBudget({...expense(),name:'จ่ายเงินสด'}),false);
 });
+test('calendar payment categories reconcile effective actuals and remaining envelopes without assuming unclassified costs',()=>{
+ const b=budget(),inventory={...expense(100000),expenseType:'inventory'},operating={...expense(200000),id:100002,expenseType:'expense',payStatus:'paid',actualAmount:150000},incoming={type:'in',amount:999,expenseType:'expense'};
+ const c=setup([b,inventory,operating,incoming]),totals=c.calendarExpenseBreakdown([b,inventory,operating,incoming]);
+ assert.equal(totals.inventory,100000);assert.equal(totals.expense,150000);assert.equal(totals.unset,2750000);assert.equal(totals.inventory+totals.expense+totals.unset,c.total());
+ c.money=String;const html=c.calendarExpenseBreakdownHTML([inventory,operating]);assert.ok(html.includes('ต้นทุนขาย'));assert.ok(html.includes('ค่าใช้จ่าย'));assert.ok(!html.includes('ยังไม่ระบุประเภท'));
+ assert.equal(c.calendarExpenseBreakdown([operating]).inventory,0);assert.equal(c.calendarExpenseBreakdown([operating]).expense,150000);
+});
 
 test('Sunday–Saturday summaries include unknown periods and separate uncertain receipts',()=>{
  const rows=[budget(),expense(),
@@ -63,4 +70,12 @@ test('calendar Excel includes daily, weekly and monthly summaries with matching 
  assert.equal(spec.rows.length,3);
  assert.ok(spec.rows.every(r=>r.expense===3000000));
  assert.equal(spec.rows[2].section,'2026-11 · รวมเดือน');
+});
+test('weekly and monthly cost columns reconcile filtered actual values and export with the same amounts',()=>{
+ const rows=[{...expense(100,'2026-11-01'),expenseType:'inventory'},{...expense(200,'2026-11-08'),id:100002,expenseType:'expense',payStatus:'paid',actualAmount:150},{...expense(20,'2026-11-08'),id:100003}],c=setup(rows);
+ c.setRange('2026-11-01','2026-11-08');const summary=c.calendarMonthSummary('2026-11',rows);
+ assert.equal(summary.month.inventory,100);assert.equal(summary.month.operatingExpense,150);assert.equal(summary.month.expense,270);assert.equal(summary.weeks[0].inventory,100);assert.equal(summary.weeks[1].operatingExpense,150);
+ assert.equal(c.calendarMonthSummary('2026-11',rows.slice(1)).month.inventory,0);
+ c.rangeDates=()=>['2026-11-01','2026-11-08'];vm.runInContext(fs.readFileSync('public/export-views.js','utf8'),c);const spec=c.ioCalendarExportSpec(rows),month=spec.rows.at(-1);
+ assert.equal(month.inventory,100);assert.equal(month.operatingExpense,150);assert.ok(spec.cols.some(col=>col.label==='ต้นทุนขาย'));assert.ok(spec.cols.some(col=>col.label==='ค่าใช้จ่าย'));
 });

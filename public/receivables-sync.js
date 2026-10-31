@@ -94,7 +94,7 @@ function sourceReconciliationHTML(){
  return `<section class="panel receipt-reconciliation"><div class="panelhead"><h2>รับชำระ / ตรวจเทียบ</h2><small>${rows.length} รายการในช่วงที่เลือก</small></div><p class="receipt-source-note">ตรวจเทียบยอดที่ยืนยันจาก Statement กับไฟล์รายงานรับชำระ ด้วยบริษัท รหัสลูกค้า เลขบิล วันที่ และยอดเงิน · รายการซ้ำหรือไม่ตรงต้องตรวจสอบ · ไฟล์รับชำระไม่ยืนยันเงินเข้าจาก Statement ให้อัตโนมัติ และไม่หักยอดซ้ำ</p><div class="scroll"><table class="report-table"><thead><tr>${spec.cols.map(col=>`<th>${col.label}</th>`).join('')}</tr></thead><tbody>${rows.slice(page*sourcePageSize,(page+1)*sourcePageSize).map(row=>`<tr>${spec.cols.map(col=>`<td ${col.key==='statusLabel'?`data-match-status="${row.status}"`:''}>${reportFormat(row[col.key],col)}</td>`).join('')}</tr>`).join('')||`<tr><td colspan="${spec.cols.length}" class="empty">ไม่มีรายการในช่วงวันที่ที่เลือก · เปลี่ยนช่วงวันที่ด้านบนเพื่อดูประวัติรับชำระ</td></tr>`}</tbody></table></div>${sourcePager(rows.length,page,'income-reconciliation')}</section>`;
 }
 function sourceTrackingTabs(){
- const open=arInvoices.filter(row=>arOutstanding(row)>0&&sourceInvoiceVisible(row)),tabs=[['all','ลูกหนี้คงค้าง',open.length],['unplanned','รอนัดชำระ',open.filter(row=>!row.promiseDate).length],['scheduled','นัดแล้ว',open.filter(row=>row.promiseDate).length],['reconciliation','รับชำระ / ตรวจเทียบ',null]];
+ const open=arInvoices.filter(row=>arOutstanding(row)>0&&sourceInvoiceVisible(row)),tabs=[['all','ลูกหนี้คงค้าง',open.length],['unplanned','รอนัดชำระ',open.filter(row=>!row.promiseDate).length],['scheduled','นัดแล้ว',open.filter(row=>row.promiseDate).length],['reconciliation','รับชำระ / ตรวจเทียบ',null]].filter(([key])=>view!=='ar-calendar'||key!=='reconciliation');
  return `<div class="tracking-tabs" role="tablist" aria-label="ขั้นตอนติดตามลูกหนี้">${tabs.map(([key,label,count])=>`<button type="button" role="tab" data-tracking-tab="${key}" aria-selected="${sourceArTab===key}">${label}${count===null?'':` <span>${count}</span>`}</button>`).join('')}</div><p class="tracking-flow-note">กำหนดวันนัดในติดตามหนี้ → ไปรายการรับทั้งหมดเพื่อตรวจ Statement → ยืนยันเงินเข้า → ตรวจเทียบกับรายงานรับชำระ</p>`;
 }
 function sourceArStatus(row){const current=debtorStatus(row.sourceCompany,row.sourceCustomerCode,row.customer);return current.group?current.group+' · '+debtorGroups[current.group]:'ยังไม่จัดกลุ่ม'}
@@ -157,4 +157,4 @@ function bindSourceReceivables(){
 }
 
 // Boot: load the existing saved source so earlier imports connect without reuploading.
-loadReports().then(()=>{if(reportData?.rawSources?.ar){syncSourceReceivables();if(['overview','calendar','income','ar-plan'].includes(view))render()}});
+loadReports().then(()=>{if(reportData?.rawSources?.ar){syncSourceReceivables();if(['overview','calendar','income','ar-plan','ar-calendar'].includes(view))render()}});

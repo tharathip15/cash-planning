@@ -53,15 +53,15 @@ const workspaceGuideTopics=[
 ];
 let workspaceGuideTopic='start',workspaceGuideReturn='overview';
 function updateWorkspaceHeader(){
- const subtitles={overview:'เงินพร้อมใช้ และแผนรับ–จ่ายของคุณ',calendar:'ดูยอดรายวันและคลิกเพื่อเปิดรายละเอียด',income:'ดูตามวันนัด เช็ก Statement แล้วยืนยันยอดเข้าจริง',list:'จัดการค่าใช้จ่าย เงินต้น ดอกเบี้ย และ BU','ar-plan':'ลูกหนี้รอนัด นัดแล้ว และตรวจเทียบรายงานรับชำระ','report-monthly':'ดูยอดขายและยอดค้างตามตัวกรอง','report-credit':'ดูเครดิตและเงื่อนไขการชำระของลูกค้า',guide:'วิธีใช้งานและคำตอบที่หาได้ในที่เดียว'};
+ const subtitles={overview:'เงินพร้อมใช้ และแผนรับ–จ่ายของคุณ',calendar:'ดูยอดรายวันและคลิกเพื่อเปิดรายละเอียด',income:'ดูตามวันนัด เช็ก Statement แล้วยืนยันยอดเข้าจริง',list:'จัดการค่าใช้จ่าย เงินต้น ดอกเบี้ย และ BU','ar-plan':'ลูกหนี้รอนัด นัดแล้ว และตรวจเทียบรายงานรับชำระ','ar-calendar':'งานวันนี้ นัดรับ โทรติดตาม หนังสือแจ้ง และงานผิดนัด','report-monthly':'ดูยอดขายและยอดค้างตามตัวกรอง','report-calendar':'ดูปฏิทินยอดขายและยอดค้างแยกรายลูกค้า','report-credit':'ดูเครดิตและเงื่อนไขการชำระของลูกค้า',guide:'วิธีใช้งานและคำตอบที่หาได้ในที่เดียว'};
  const subtitle=document.querySelector('.top p');if(subtitle)subtitle.textContent=subtitles[view]||'จัดการแผนรับ–จ่ายของคุณ';
  const exportButton=document.querySelector('#export');
- const moduleLabels={overview:'ภาพรวม',calendar:'ปฏิทิน',income:'รายการรับทั้งหมด',list:'รายการจ่าย','ar-plan':'ลูกหนี้'};
+ const moduleLabels={overview:'ภาพรวม',calendar:'ปฏิทิน',income:'รายการรับทั้งหมด',list:'รายการจ่าย','ar-plan':'ลูกหนี้','ar-calendar':'ปฏิทินติดตามหนี้'};
  if(exportButton){exportButton.textContent='ส่งออก Excel'+(moduleLabels[view]?' · '+moduleLabels[view]:'');exportButton.setAttribute('aria-label',exportButton.textContent)}
 }
 function openWorkspaceGuide(topic){
  if(view!=='guide')workspaceGuideReturn=view;
- workspaceGuideTopic=topic||({overview:'cash',calendar:'calendar',income:'payments',list:'payments','ar-plan':'ar','report-monthly':'reports','report-credit':'reports'}[view]||'start');
+ workspaceGuideTopic=topic||({overview:'cash',calendar:'calendar',income:'payments',list:'payments','ar-plan':'ar','ar-calendar':'ar','report-monthly':'reports','report-calendar':'reports','report-credit':'reports'}[view]||'start');
  view='guide';render();
  document.querySelector('aside')?.removeAttribute('data-mobile-open');
  document.querySelector('#nav-toggle')?.setAttribute('aria-expanded','false');
