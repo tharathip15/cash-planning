@@ -1,23 +1,30 @@
 /* Raw-source report builder. Reads locally; writes only a validated aggregate snapshot. */
 const rrCommon=[['company','บริษัท',['Company','Company Name'],false],['code','รหัสลูกค้า',['Customer No','Customer Code','AR No','รหัส'],true],['name','ชื่อลูกค้า',['Customer Name','AR Name','ลูกค้า'],false]];
 const rrSchemas={
- sales:[...rrCommon,['bill','เลขบิล',['Invoice No','Doc No','Document No','เลขที่เอกสาร'],true],['date','วันที่เอกสาร',['Doc Date','Invoice Date'],true],['amount','ยอดขายรวม VAT',['Net Amount','ยอดขาย','ยอดสุทธิ','ยอดรวม'],true],['salesperson','ชื่อฝ่ายขาย',['Emp Name','Salesperson','Sales'],false]],
- ar:[...rrCommon,['bill','เลขบิล',['Invoice No','Doc No','Document No','เลขที่เอกสาร'],true],['date','วันที่เอกสาร',['Doc Date','Invoice Date'],true],['due','วันครบกำหนด',['Due Date','Payment Due Date'],false],['balance','ยอดคงเหลือ',['Outstanding','Balance','Remain Amount','ยอดค้าง','ยอดค้างชำระ'],true]],
+ sales:[...rrCommon,['bill','เลขบิล',['Invoice No','Doc No','Document No','เลขที่เอกสาร'],true],['date','วันที่บิล (Invoice Date)',['Invoice Date','วันที่บิล','วันที่เอกสาร','Doc Date'],true],['amount','ยอดขายรวม VAT',['Net Amount','ยอดขาย','ยอดสุทธิ','ยอดรวม'],true],['salesperson','ชื่อฝ่ายขาย',['Emp Name','Salesperson','Sales'],false]],
+ ar:[...rrCommon,['bill','เลขบิล',['Invoice No','Doc No','Document No','เลขที่เอกสาร'],true],['date','วันที่บิล (Invoice Date)',['Invoice Date','วันที่บิล','วันที่เอกสาร','Doc Date'],true],['due','วันครบกำหนด',['Due Date','Payment Due Date'],false],['balance','ยอดคงเหลือ',['Outstanding','Balance','Remain Amount','ยอดค้าง','ยอดค้างชำระ'],true]],
  master:[...rrCommon.map(f=>f[0]==='name'?[...f.slice(0,3),true]:f),['type','ประเภทลูกค้า',['ประเภท','Customer Type'],false],['credit','เครดิตเดิม (วัน)',['เครดิต','เครดิต (วัน)','Credit Term','Credit Days','CreditDay','Credit (Day)'],false],['customerCredit','เครดิตตามเงื่อนไขลูกค้า (วัน)',['เครดิตตามลูกค้า'],false],['terms','เงื่อนไขการชำระเงิน',['Payment Terms','เงื่อนไขการชำระเงิน (ตามเงื่อนไขลูกค้า)'],false],['paymentType','รูปแบบการจ่าย',['รูปแบบการจ่าย (จากไฟล์ Report)'],false],['salesperson','ชื่อฝ่ายขาย',['Emp Name','Salesperson'],false]],
  receipts:[...rrCommon,['bill','เลขบิลที่ตัดชำระ',['Invoice No','เลขบิล','Doc No'],true],['receivedDate','วันที่รับชำระ',['Receipt Date','Payment Date','Doc Date','วันที่รับ'],true],['received','ยอดรับตัดบิล',['Amount Applied','Paid Amount','Pay Amount','ยอดรับ','จำนวนเงิน'],true]]
 };
-rrSchemas.sales.push(['due','วันครบกำหนด',['Due Date','Payment Due Date'],false],['shipmentDate','วันที่ส่ง',['Shipping Date','Delivery Date'],false],['deliveryNo','เลขใบส่งของ',['SO/SS','SO No','SS No','Delivery No'],false],['promiseDate','วันที่นัดรับ',['Promise Date'],false]);
+rrSchemas.sales.push(['due','วันครบกำหนด',['Due Date','Payment Due Date'],false],['shipmentDate','วันที่ส่งของ (Doc Date)',['Doc Date','วันที่ส่ง','Shipping Date','Delivery Date'],false],['deliveryNo','SO/SS (Sale Order No)',['Sale Order No','Sales Order No','SO/SS','SO No','SS No','Delivery No','เลขใบส่งของ'],false],['promiseDate','วันที่นัดรับ',['Promise Date'],false]);
 rrSchemas.sales.push(...rrSchemas.master.filter(f=>!['company','code','name','salesperson'].includes(f[0])).map(f=>[...f.slice(0,3),false]));
 const rrNames={sales:'ยอดขายรายบิล',ar:'ลูกหนี้คงค้างรายบิล',master:'ข้อมูลลูกค้าเพิ่มเติม (ไม่บังคับ)',receipts:'รับชำระตัดบิล (ไม่บังคับ)'};
-let rrInputs={},rrPlan=null,rrErrors=[],rrSourceModes={};
+let rrInputs={},rrPlan=null,rrErrors=[],rrSourceModes={},rrLoading=new Set();
 function rrSavedInput(kind){const saved=typeof reportData==='undefined'?null:reportData?.rawSources?.[kind];return saved?{cached:true,rows:saved.rows,filename:saved.file,sheet:saved.sheet,asOf:saved.asOf}:null}
 function rrSetSourceMode(kind,mode){rrSourceModes[kind]=mode;const saved=rrSavedInput(kind);if(saved)rrInputs[kind]=saved;else delete rrInputs[kind];rrInvalidate();rrDrawCards()}
 function rrSourceSummary(){return Object.entries(rrInputs).map(([kind,input])=>(input.cached?'คงข้อมูลเดิม: ':'อัปเดตใหม่: ')+rrNames[kind]+' · '+input.filename).join(' / ')}
-function rrValidateSourceModes(){for(const [kind,mode]of Object.entries(rrSourceModes))if(mode==='upload'&&(!rrInputs[kind]||rrInputs[kind].cached))throw Error('กรุณาเลือกไฟล์ใหม่สำหรับ '+rrNames[kind]+' หรือเลือกใช้ข้อมูลเดิม')}
+function rrValidateSourceModes(){if(rrLoading.size)throw Error('กำลังอ่านไฟล์ กรุณารอให้ครบก่อนตรวจข้อมูล');for(const [kind,mode]of Object.entries(rrSourceModes))if(mode==='upload'&&(!rrInputs[kind]||rrInputs[kind].cached))throw Error('กรุณาเลือกไฟล์ใหม่สำหรับ '+rrNames[kind]+' หรือเลือกใช้ข้อมูลเดิม')}
 rrSchemas.receipts.push(['date','วันที่บิลต้นทาง',['Original Invoice Date'],false],['receiptNo','เลขที่รับชำระ',['Receipts No','Receipt No'],false]);
 function rrMapHeaders(kind,headers){
  let map={};
  for(let [key,label,aliases]of rrSchemas[kind])map[key]=headers.findIndex(v=>[label,...aliases].some(a=>reportNorm(v)===reportNorm(a)));
+ if(kind==='sales'||kind==='ar'){
+  const invoice=headers.findIndex(v=>reportNorm(v)==='invoicedate');if(invoice>=0)map.date=invoice;
+ }
+ if(kind==='sales'){
+  const doc=headers.findIndex(v=>reportNorm(v)==='docdate'),order=headers.findIndex(v=>['saleorderno','salesorderno'].includes(reportNorm(v)));
+  if(doc>=0)map.shipmentDate=doc;if(order>=0)map.deliveryNo=order;
+ }
  // This export has a receipt section followed by the original invoice section.
  if(kind==='receipts'&&headers.some(v=>reportNorm(v)==='receiptsno')&&headers.some(v=>reportNorm(v)==='payamount')){
   let docs=headers.map((v,i)=>reportNorm(v)==='docno'?i:-1).filter(i=>i>=0),dates=headers.map((v,i)=>reportNorm(v)==='docdate'?i:-1).filter(i=>i>=0);
@@ -27,6 +34,7 @@ function rrMapHeaders(kind,headers){
  return map;
 }
 function rrNormalizeSource(kind,rows,headers,input){
+ if(kind==='sales'||kind==='ar')rows=rows.map(row=>({...row,...(reportNorm(headers[input.map.date])==='invoicedate'?{invoiceDate:row.date}:{}),...(kind==='sales'?{fieldMappingVersion:2}:{})}));
  if(kind==='receipts'&&reportNorm(headers[input.map.received])==='payamount'&&headers.some(v=>reportNorm(v)==='receiptsno'))return rows.map(r=>({...r,settlementType:r.received<0&&/^CN[0-9-]/i.test(r.bill)?'credit-note':'payment'}));
  // Net Amount repeats per product in this export; generic line amounts still sum.
  if(kind!=='sales'||reportNorm(headers[input.map.amount])!=='netamount'||!headers.some(v=>reportNorm(v)==='goodsno')||!headers.some(v=>reportNorm(v)==='goodstotalamount'))return rows;
@@ -46,6 +54,10 @@ function rrNormalizeSource(kind,rows,headers,input){
  }
  return [...bills.values()];
 }
+function rrAlignInvoiceDates(sales,rows){
+ const invoices=new Map(sales.map(row=>[rrBillKey(row),row]));
+ return rows.map(row=>{const sale=invoices.get(rrBillKey(row));return sale?.invoiceDate&&!row.invoiceDate&&row.date===sale.shipmentDate?{...row,date:sale.invoiceDate}:row});
+}
 function rrCompanyName(company){const n=reportNorm(company);return ['pf','profess','โปรเฟส'].includes(n)?'โปรเฟส':['nv','novat','โนวาท'].includes(n)?'Novat':['tnp','ทีเอ็นพี'].includes(n)?'TNP':String(company||'').trim()}
 function rrMergeCompanyRows(previous,incoming,previousAsOf,asOf){
  const companies=new Set(incoming.map(r=>rrCompanyName(r.company)));
@@ -55,11 +67,67 @@ function rrMergeCompanyRows(previous,incoming,previousAsOf,asOf){
 const rrKey=(company,code)=>reportNorm(rrCompanyName(company))+'|'+String(code??'').trim().toUpperCase();
 const rrBillKey=r=>rrKey(r.company,r.code)+'|'+String(r.bill??'').trim().toUpperCase();
 function rrInvalidate(){rrPlan=null;$('#rr-commit').disabled=true;$('#rr-preview').innerHTML='';}
-function rrAutoMap(kind){let input=rrInputs[kind],rows=reportGrid(input.book.Sheets[input.sheet]),best={score:-1,row:0,map:{}};for(let r=0;r<Math.min(rows.length,40);r++){let map=rrMapHeaders(kind,rows[r]),score=Object.values(map).filter(i=>i>=0).length;if(score>best.score)best={score,row:r,map}}input.header=best.row;input.map=best.map;if(!(input.map.company>=0)&&!input.company)input.company=['รายงานขายเชื่อ.xlsx','รายงานลูกหนี้คงค้าง.xlsx','รายงานรับชำระ.xlsx'].includes(input.filename)?'โปรเฟส':'ไม่ระบุบริษัท';}
-function rrCard(kind){let el=$('#rr-'+kind),input=rrInputs[kind];if(input?.cached){const upload=rrSourceModes[kind]==='upload';el.innerHTML=`<h3>${rrNames[kind]}</h3><div class="rr-source-choice"><button type="button" class="secondary ${!upload?'selected':''}" data-rr-mode="${kind}" data-mode="keep" aria-pressed="${!upload}">ใช้ข้อมูลเดิม</button><button type="button" class="secondary ${upload?'selected':''}" data-rr-mode="${kind}" data-mode="upload" aria-pressed="${upload}">อัปโหลดใหม่</button></div><p>${upload?'อัปเดตเฉพาะบริษัทในไฟล์ใหม่เมื่อยืนยัน · บริษัทอื่นคงเดิม':'คงข้อมูลเดิม ไม่ต้องอัปโหลด'}: ${esc(input.filename)} · ${input.rows.length} แถว · ณ ${esc(input.asOf||'ไม่ระบุ')}</p>${upload?`<input type="file" data-rr-file="${kind}" accept=".xlsx,.xls,.csv" aria-label="เปลี่ยนไฟล์ ${rrNames[kind]}">`:'<span class="rr-keep-badge">ใช้ชุดเดิมต่อ</span>'}`;return}if(!input){el.innerHTML=`<h3>${rrNames[kind]}</h3><input type="file" data-rr-file="${kind}" accept=".xlsx,.xls,.csv" aria-label="เลือกไฟล์ ${rrNames[kind]}">`;return}let sheet=input.book.Sheets[input.sheet],grid=reportGrid(sheet),headers=grid[input.header]||[];el.innerHTML=`<h3>${rrNames[kind]}</h3><p class="rr-new-badge">อัปเดตใหม่: ${esc(input.filename)}</p>${rrSavedInput(kind)?`<button type="button" class="secondary" data-rr-mode="${kind}" data-mode="keep">ยกเลิกไฟล์ใหม่ · ใช้ข้อมูลเดิม</button>`:''}<input type="file" data-rr-file="${kind}" accept=".xlsx,.xls,.csv" aria-label="เปลี่ยนไฟล์ ${rrNames[kind]}"><div class="rr-options"><label>ชีต<select data-rr-sheet="${kind}">${input.book.SheetNames.map(n=>`<option ${n===input.sheet?'selected':''}>${esc(n)}</option>`).join('')}</select></label><label>แถวหัวตาราง<input type="number" min="1" max="20000" value="${input.header+1}" data-rr-header="${kind}"></label><label>บริษัทเมื่อไม่มีคอลัมน์<input data-rr-company="${kind}" value="${esc(input.company||'')}" placeholder="เช่น โปรเฟส"></label></div><details><summary>จับคู่หัวตาราง · * ต้องมี</summary><div class="rr-mapping">${rrSchemas[kind].map(([key,label,,required])=>`<label>${esc(label)}${required?' *':''}<select data-rr-map="${kind}" data-key="${key}"><option value="-1">ไม่ใช้คอลัมน์</option>${headers.map((h,i)=>`<option value="${i}" ${input.map[key]===i?'selected':''}>${XLSX.utils.encode_col(i)} · ${esc(h??'ไม่มีหัวข้อ')}</option>`).join('')}</select></label>`).join('')}</div></details><button class="secondary" data-rr-remove="${kind}">เอาไฟล์นี้ออก</button>`;}
-function rrBindCards(){document.querySelectorAll('[data-rr-mode]').forEach(el=>el.onclick=()=>rrSetSourceMode(el.dataset.rrMode,el.dataset.mode));document.querySelectorAll('[data-rr-file]').forEach(el=>el.onchange=async()=>{let f=el.files[0],kind=el.dataset.rrFile;if(!f)return;try{if(f.size>15*1024*1024)throw Error('ไฟล์ต้องไม่เกิน 15 MB');let book=XLSX.read(await f.arrayBuffer(),{type:'array',cellFormula:true,codepage:65001,sheetRows:20001});if(!book.SheetNames.length)throw Error('ไฟล์ไม่มีชีต');rrSourceModes[kind]='upload';rrInputs[kind]={book,sheet:book.SheetNames[0],filename:f.name,company:''};rrAutoMap(kind);rrInvalidate();rrDrawCards();$('#rr-error').textContent=''}catch(e){$('#rr-error').textContent=e.message}});document.querySelectorAll('[data-rr-sheet]').forEach(el=>el.onchange=()=>{let kind=el.dataset.rrSheet;rrInputs[kind].sheet=el.value;rrAutoMap(kind);rrInvalidate();rrDrawCards()});document.querySelectorAll('[data-rr-header]').forEach(el=>el.onchange=()=>{let input=rrInputs[el.dataset.rrHeader],n=Number(el.value);if(!Number.isInteger(n)||n<1)return;input.header=n-1;let headers=reportGrid(input.book.Sheets[input.sheet])[input.header]||[];input.map=rrMapHeaders(el.dataset.rrHeader,headers);rrInvalidate();rrDrawCards()});document.querySelectorAll('[data-rr-company]').forEach(el=>el.oninput=()=>{rrInputs[el.dataset.rrCompany].company=el.value;rrInvalidate()});document.querySelectorAll('[data-rr-map]').forEach(el=>el.onchange=()=>{rrInputs[el.dataset.rrMap].map[el.dataset.key]=Number(el.value);rrInvalidate()});document.querySelectorAll('[data-rr-remove]').forEach(el=>el.onclick=()=>{delete rrInputs[el.dataset.rrRemove];rrInvalidate();rrDrawCards()});}
-function rrDrawCards(){for(let kind in rrSchemas)rrCard(kind);rrBindCards();if($('#rr-source-status'))$('#rr-source-status').textContent='เลือกอัปโหลดใหม่เฉพาะชุดที่ต้องการ · ชุดอื่นใช้ข้อมูลเดิมต่อ ไม่ต้องแนบครบทุกไฟล์'}
-function rrRead(kind){let input=rrInputs[kind];if(input?.cached)return input.rows.map(r=>({...r}));if(!input){if(kind==='receipts'||kind==='master')return [];throw Error('กรุณาเลือกไฟล์ '+rrNames[kind])}let sheet=input.book.Sheets[input.sheet],grid=reportGrid(sheet);if(sheet['!fullref']&&XLSX.utils.decode_range(sheet['!fullref']).e.r>=20000)throw Error(rrNames[kind]+' เกิน 20,000 แถว');for(let [key,label,,required] of rrSchemas[kind])if(required&&!(input.map[key]>=0))throw Error(rrNames[kind]+': ยังไม่จับคู่ '+label);if(!(input.map.company>=0)&&!input.company?.trim())throw Error(rrNames[kind]+': ต้องเลือกคอลัมน์บริษัทหรือกรอกชื่อบริษัท');let rows=[];for(let r=input.header+1;r<grid.length;r++){let raw=grid[r];if(raw.every(v=>v===null||v===''))continue;let result={_row:r+1};for(let [key] of rrSchemas[kind])result[key]=input.map[key]>=0?reportCell(sheet,r,input.map[key]):'';if(!result.code&&/รวม|total|subtotal/i.test(raw.map(v=>v??'').join(' ')))continue;if(!result.code)throw Error(rrNames[kind]+' แถว '+(r+1)+': ไม่มีรหัสลูกค้า');result.company=String(result.company||input.company||'').trim();result.code=String(result.code).trim();if(!result.company)throw Error('ไม่มีบริษัท แถว '+(r+1));for(let [key,label,,required] of rrSchemas[kind]){if(required&&(result[key]===''||result[key]===null||result[key]===undefined))throw Error(rrNames[kind]+' แถว '+(r+1)+': ไม่มี '+label)}for(let key of ['date','due','receivedDate','shipmentDate','promiseDate'])if(key in result&&result[key]!==''&&result[key]!=null){let d=ioDate(result[key],!!input.book.Workbook?.WBProps?.date1904);if(!d)throw Error(rrNames[kind]+' แถว '+(r+1)+': วันที่ไม่ถูกต้อง');result[key]=d}for(let key of ['amount','balance','received'])if(key in result){let n=ioNumber(result[key]);if(n===''||n===null)throw Error(rrNames[kind]+' แถว '+(r+1)+': ยอดเงินไม่ถูกต้อง');result[key]=n}rows.push(result)}if(!rows.length)throw Error(rrNames[kind]+' ไม่มีข้อมูล');return rrNormalizeSource(kind,rows,grid[input.header],input)}
+function rrAutoMap(kind,input=rrCurrentInput(kind)){let rows=reportGrid(input.book.Sheets[input.sheet]),best={score:-1,row:0,map:{}};for(let r=0;r<Math.min(rows.length,40);r++){let map=rrMapHeaders(kind,rows[r]),score=Object.values(map).filter(i=>i>=0).length;if(score>best.score)best={score,row:r,map}}input.header=best.row;input.map=best.map;if(!(input.map.company>=0)&&!input.company)input.company=rrFilenameCompany(input.filename);}
+function rrSingleCard(kind,input=rrInputs[kind]){let el=$('#rr-'+kind);if(input?.cached){const upload=rrSourceModes[kind]==='upload';el.innerHTML=`<h3>${rrNames[kind]}</h3><div class="rr-source-choice"><button type="button" class="secondary ${!upload?'selected':''}" data-rr-mode="${kind}" data-mode="keep" aria-pressed="${!upload}">ใช้ข้อมูลเดิม</button><button type="button" class="secondary ${upload?'selected':''}" data-rr-mode="${kind}" data-mode="upload" aria-pressed="${upload}">อัปโหลดใหม่</button></div><p>${upload?'อัปเดตเฉพาะบริษัทในไฟล์ใหม่เมื่อยืนยัน · บริษัทอื่นคงเดิม':'คงข้อมูลเดิม ไม่ต้องอัปโหลด'}: ${esc(input.filename)} · ${input.rows.length} แถว · ณ ${esc(input.asOf||'ไม่ระบุ')}</p>${upload?`<input type="file" multiple data-rr-file="${kind}" accept=".xlsx,.xls,.csv" aria-label="เลือกหลายไฟล์ ${rrNames[kind]}">`:'<span class="rr-keep-badge">ใช้ชุดเดิมต่อ</span>'}`;return}if(!input){el.innerHTML=`<h3>${rrNames[kind]}</h3><input type="file" multiple data-rr-file="${kind}" accept=".xlsx,.xls,.csv" aria-label="เลือกหลายไฟล์ ${rrNames[kind]}">`;return}let sheet=input.book.Sheets[input.sheet],grid=reportGrid(sheet),headers=grid[input.header]||[];el.innerHTML=`<h3>${rrNames[kind]}</h3><p class="rr-new-badge">อัปเดตใหม่: ${esc(input.filename)}</p>${rrSavedInput(kind)?`<button type="button" class="secondary" data-rr-mode="${kind}" data-mode="keep">ยกเลิกไฟล์ใหม่ · ใช้ข้อมูลเดิม</button>`:''}<input type="file" multiple data-rr-file="${kind}" accept=".xlsx,.xls,.csv" aria-label="เลือกหลายไฟล์ ${rrNames[kind]}"><div class="rr-options"><label>ชีต<select data-rr-sheet="${kind}">${input.book.SheetNames.map(n=>`<option ${n===input.sheet?'selected':''}>${esc(n)}</option>`).join('')}</select></label><label>แถวหัวตาราง<input type="number" min="1" max="20000" value="${input.header+1}" data-rr-header="${kind}"></label><label>บริษัทเมื่อไม่มีคอลัมน์<input data-rr-company="${kind}" value="${esc(input.company||'')}" placeholder="เช่น โปรเฟส"></label></div><details><summary>จับคู่หัวตาราง · * ต้องมี</summary><div class="rr-mapping">${rrSchemas[kind].map(([key,label,,required])=>`<label>${esc(label)}${required?' *':''}<select data-rr-map="${kind}" data-key="${key}"><option value="-1">ไม่ใช้คอลัมน์</option>${headers.map((h,i)=>`<option value="${i}" ${input.map[key]===i?'selected':''}>${XLSX.utils.encode_col(i)} · ${esc(h??'ไม่มีหัวข้อ')}</option>`).join('')}</select></label>`).join('')}</div></details><button class="secondary" data-rr-remove="${kind}">เอาไฟล์นี้ออก</button>`;}
+function rrBindCards(){document.querySelectorAll('[data-rr-mode]').forEach(el=>el.onclick=()=>rrSetSourceMode(el.dataset.rrMode,el.dataset.mode));document.querySelectorAll('[data-rr-file]').forEach(el=>el.onchange=async()=>{try{await rrLoadFiles(el.dataset.rrFile,el.files);rrDrawCards();$('#rr-error').textContent=''}catch(error){$('#rr-error').textContent=error.message;el.value=''}});document.querySelectorAll('[data-rr-sheet]').forEach(el=>el.onchange=()=>{let kind=el.dataset.rrSheet;rrCurrentInput(kind).sheet=el.value;rrAutoMap(kind);rrInvalidate();rrDrawCards()});document.querySelectorAll('[data-rr-header]').forEach(el=>el.onchange=()=>{let input=rrCurrentInput(el.dataset.rrHeader),n=Number(el.value);if(!Number.isInteger(n)||n<1)return;input.header=n-1;let headers=reportGrid(input.book.Sheets[input.sheet])[input.header]||[];input.map=rrMapHeaders(el.dataset.rrHeader,headers);rrInvalidate();rrDrawCards()});document.querySelectorAll('[data-rr-company]').forEach(el=>el.oninput=()=>{rrCurrentInput(el.dataset.rrCompany).company=el.value;rrInvalidate()});document.querySelectorAll('[data-rr-map]').forEach(el=>el.onchange=()=>{rrCurrentInput(el.dataset.rrMap).map[el.dataset.key]=Number(el.value);rrInvalidate()});document.querySelectorAll('[data-rr-remove]').forEach(el=>el.onclick=()=>{rrRemoveFile(el.dataset.rrRemove)});}
+function rrFilenameCompany(filename=''){
+ const name=String(filename).replace(/\.[^.]+$/,'');
+ if(/(?:^|[^a-z0-9])tnp(?:$|[^a-z0-9])|ทีเอ็นพี/i.test(name))return 'TNP';
+ if(/(?:^|[^a-z0-9])(nv|novat)(?:$|[^a-z0-9])|โนวาท/i.test(name))return 'Novat';
+ if(/(?:^|[^a-z0-9])(pf|profess)(?:$|[^a-z0-9])|โปรเฟส/i.test(name)||['รายงานขายเชื่อ','รายงานลูกหนี้คงค้าง','รายงานรับชำระ'].includes(name))return 'โปรเฟส';
+ return 'ไม่ระบุบริษัท';
+}
+function rrCurrentInput(kind){const input=rrInputs[kind];return input?.files?input.files[input.active||0]:input}
+function rrBatchInput(files){return files.length===1?files[0]:{files,active:0,filename:files.map(file=>file.filename).join(' + '),sheet:'หลายไฟล์'}}
+async function rrLoadFiles(kind,selected){
+ const files=Array.from(selected);if(!files.length)return;
+ if(rrLoading.size)throw Error('กำลังอ่านไฟล์ กรุณารอสักครู่ก่อนเลือกชุดถัดไป');
+ if(files.length>20)throw Error('เลือกได้ไม่เกิน 20 ไฟล์ต่อชุด');
+ rrInvalidate();rrLoading.add(kind);
+ try{
+ const inputs=[];
+ // Keep the previous selection intact if any file cannot be read.
+ for(const file of files){try{
+  if(file.size>15*1024*1024)throw Error('ไฟล์ต้องไม่เกิน 15 MB');
+  const book=XLSX.read(await file.arrayBuffer(),{type:'array',cellFormula:true,codepage:65001,sheetRows:20001});
+  if(!book.SheetNames.length)throw Error('ไฟล์ไม่มีชีต');
+  const input={book,sheet:book.SheetNames[0],filename:file.name,company:''};rrAutoMap(kind,input);inputs.push(input);
+ }catch(error){throw Error(file.name+': '+error.message)}}
+ rrInputs[kind]=rrBatchInput(inputs);rrSourceModes[kind]='upload';rrInvalidate();
+ }finally{rrLoading.delete(kind)}
+}
+function rrRemoveFile(kind){
+ const input=rrInputs[kind];
+ if(input.files){const files=input.files.filter((_,index)=>index!==(input.active||0));rrInputs[kind]=rrBatchInput(files)}
+ else if(rrSavedInput(kind)){rrInputs[kind]=rrSavedInput(kind);rrSourceModes[kind]='keep'}
+ else delete rrInputs[kind];
+ rrInvalidate();rrDrawCards();
+}
+function rrCard(kind){
+ const input=rrInputs[kind];rrSingleCard(kind,rrCurrentInput(kind));
+ const el=$('#rr-'+kind);
+ if(!input?.cached||rrSourceModes[kind]==='upload')el.insertAdjacentHTML('afterbegin','<p class="rr-multi-hint">เลือกไฟล์ PF, TNP, NV พร้อมกันได้ในช่องนี้ · ตรวจและยืนยันรวมครั้งเดียว</p>');
+ if(input?.files){
+  el.insertAdjacentHTML('afterbegin',`<div class="rr-file-batch"><b>เลือกแล้ว ${input.files.length} ไฟล์</b><p>ตรวจชื่อบริษัทและการจับคู่ของแต่ละไฟล์ก่อนคำนวณรวม · เลือกไฟล์ใหม่จะแทนชุดที่เลือกอยู่นี้</p><div>${input.files.map((file,index)=>`<button type="button" class="secondary ${index===(input.active||0)?'selected':''}" data-rr-active="${index}" aria-pressed="${index===(input.active||0)}">${esc(file.filename)}</button>`).join('')}</div></div>`);
+  el.querySelectorAll('[data-rr-active]').forEach(button=>button.onclick=()=>{input.active=Number(button.dataset.rrActive);rrDrawCards()});
+ }
+}
+function rrDrawCards(){for(let kind in rrSchemas)rrCard(kind);rrBindCards();if($('#rr-source-status'))$('#rr-source-status').textContent='แต่ละชุดเลือกไฟล์ PF, TNP, NV พร้อมกันได้ · ตรวจข้อมูลรวมแล้วกดยืนยันครั้งเดียว · บริษัทอื่นคงเดิม'}
+function rrRead(kind){
+ const input=rrInputs[kind];if(!input?.files)return rrReadInput(kind,input);
+ const companies=new Map(),rows=[];
+ for(const file of input.files){
+  let selected;try{selected=rrReadInput(kind,file)}catch(error){throw Error(file.filename+': '+error.message)}
+  for(const company of new Set(selected.map(row=>rrCompanyName(row.company)))){
+   if(!company||company==='ไม่ระบุบริษัท')throw Error(file.filename+': กรุณาระบุบริษัทก่อนตรวจข้อมูล');
+   if(companies.has(company))throw Error('บริษัท '+company+' อยู่ในหลายไฟล์: '+companies.get(company)+' และ '+file.filename+' · เลือกชุดล่าสุดเพียงไฟล์เดียวต่อบริษัท');
+   companies.set(company,file.filename);
+  }
+  rows.push(...selected);
+ }
+ return rows;
+}
+function rrReadInput(kind,input){if(input?.cached)return input.rows.map(r=>({...r}));if(!input){if(kind==='receipts'||kind==='master')return [];throw Error('กรุณาเลือกไฟล์ '+rrNames[kind])}let sheet=input.book.Sheets[input.sheet],grid=reportGrid(sheet);if(sheet['!fullref']&&XLSX.utils.decode_range(sheet['!fullref']).e.r>=20000)throw Error(rrNames[kind]+' เกิน 20,000 แถว');for(let [key,label,,required] of rrSchemas[kind])if(required&&!(input.map[key]>=0))throw Error(rrNames[kind]+': ยังไม่จับคู่ '+label);if(!(input.map.company>=0)&&!input.company?.trim())throw Error(rrNames[kind]+': ต้องเลือกคอลัมน์บริษัทหรือกรอกชื่อบริษัท');let rows=[];for(let r=input.header+1;r<grid.length;r++){let raw=grid[r];if(raw.every(v=>v===null||v===''))continue;let result={_row:r+1};for(let [key] of rrSchemas[kind])result[key]=input.map[key]>=0?reportCell(sheet,r,input.map[key]):'';if(!result.code&&/รวม|total|subtotal/i.test(raw.map(v=>v??'').join(' ')))continue;if(!result.code)throw Error(rrNames[kind]+' แถว '+(r+1)+': ไม่มีรหัสลูกค้า');result.company=String(result.company||input.company||'').trim();result.code=String(result.code).trim();if(!result.company)throw Error('ไม่มีบริษัท แถว '+(r+1));for(let [key,label,,required] of rrSchemas[kind]){if(required&&(result[key]===''||result[key]===null||result[key]===undefined))throw Error(rrNames[kind]+' แถว '+(r+1)+': ไม่มี '+label)}for(let key of ['date','due','receivedDate','shipmentDate','promiseDate'])if(key in result&&result[key]!==''&&result[key]!=null){let d=ioDate(result[key],!!input.book.Workbook?.WBProps?.date1904);if(!d)throw Error(rrNames[kind]+' แถว '+(r+1)+': วันที่ไม่ถูกต้อง');result[key]=d}for(let key of ['amount','balance','received'])if(key in result){let n=ioNumber(result[key]);if(n===''||n===null)throw Error(rrNames[kind]+' แถว '+(r+1)+': ยอดเงินไม่ถูกต้อง');result[key]=n}rows.push(result)}if(!rows.length)throw Error(rrNames[kind]+' ไม่มีข้อมูล');return rrNormalizeSource(kind,rows,grid[input.header],input)}
 function rrCreditGroup(v){if(v===null||v===undefined||v==='')return 'ไม่ระบุ';let s=String(v).trim();return /^\d+$/.test(s)?s+' วัน':s}
 function rrCustomerData(sales,master){
  const derived=new Map(),explicit=new Set(),fields=['name','type','credit','customerCredit','terms','paymentType','salesperson'];
@@ -69,6 +137,7 @@ function rrCustomerData(sales,master){
  return [...result.values()];
 }
 function rrBuild(sales,ar,master,receipts,year,asof){
+ ar=rrAlignInvoiceDates(sales,ar);receipts=rrAlignInvoiceDates(sales,receipts);
  master=rrCustomerData(sales,master);
  if(!Number.isInteger(year)||year<2500||year>2700||!validSheetDate(asof))throw Error('ตรวจปีรายงานและวันที่ข้อมูล');
  const customers=new Map(),masters=new Map(),invoices=new Map(),arBills=new Set(),warnings=[];

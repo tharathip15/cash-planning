@@ -37,6 +37,11 @@ test('source AR creates complete current-bill details without inventing delivery
  const invoice=model.invoices[0];assert.equal(invoice.amount,1000);assert.equal(invoice.priorPaid,400);assert.equal(invoice.promiseDate,'');assert.equal(invoice.shipmentDate,'');assert.equal(invoice.deliveryNo,'');
  c.arInvoices=model.invoices;c.syncAllArPlans();assert.equal(c.data.length,1);assert.equal(c.data[0].date,'');assert.equal(c.data[0].planExcluded,true);assert.equal(c.data[0].certainty,'uncertain');
 });
+test('receivable shipment, invoice date and SO/SS are separate fields from the sales source',()=>{
+ const {c}=setup(),d=snapshot();Object.assign(d.rawSources.sales.rows[0],{shipmentDate:'2026-08-30',invoiceDate:'2026-09-01',deliveryNo:'SO-123'});
+ const invoice=c.sourceReceivableModel(d,[]).invoices[0];assert.equal(invoice.shipmentDate,'2026-08-30');assert.equal(invoice.sourceDocDate,'2026-09-01');assert.equal(invoice.deliveryNo,'SO-123');
+ assert.equal(c.sourceInvoiceLocked('sourceDocDate',invoice),true);
+});
 test('clearing a matched customer status does not resurrect the historical PDF classification',()=>{
  const {c}=setup(),d=snapshot(),seed=c.seed.find(r=>r.group==='3');
  d.rawSources.ar.rows[0].name=seed.name;d.credit.rows[0][3]=seed.name;
@@ -64,4 +69,43 @@ test('source storage saves small edits instead of duplicate derived invoices and
  assert.equal(JSON.parse(stored['profess-source-ar-edits-v1']).edits[invoice.id].promiseDate,'2026-11-15');
  d.rawSources.ar.rows=[];const model=c.sourceReceivableModel(d,[invoice],{},[{arInvoiceId:invoice.id,certainty:'received'}]);
  assert.equal(model.invoices[0].sourceArchived,true);assert.equal(model.invoices[0].priorPaid,1000);
+});
+test('income without an appointment explains due dates independently and stays out of dated cash plans',()=>{
+ const {c}=setup(),d=snapshot();c.reportData=d;c.arInvoices=c.sourceReceivableModel(d,[]).invoices;c.syncAllArPlans();c.arDate=value=>value;
+ const row=c.data[0];assert.equal(row.date,'');assert.equal(row.sourceDueDate,'2026-10-01');assert.equal(row.planExcluded,true);
+ assert.match(c.sourceIncomeDateContext(row),/2026-10-01/);assert.match(c.sourceIncomeDateContext(row),/เกินกำหนด 29 วัน/);
+ row.sourceDueDate='2026-11-01';assert.match(c.sourceIncomeDateContext(row),/ยังไม่ถึงกำหนด/);
+ c.rangeStart='2026-10-01';c.rangeEnd='2026-10-31';c.sheetTable=()=>'<table></table>';
+ assert.equal(c.sourceIncomeRows().length,0);
+ const html=c.sourceIncomeTable([row]);assert.match(html,/บิลรอนัด · ไปติดตามหนี้/);assert.doesNotMatch(html,/income-date-group/);
+});
+test('Statement confirmation links to debt and later source reimport reconciles without deducting twice',()=>{
+ const {c}=setup(),d=snapshot();c.reportData=d;c.rangeStart='2026-10-01';c.rangeEnd='2026-10-31';c.arInvoices=c.sourceReceivableModel(d,[]).invoices;c.arInvoices[0].promiseDate='2026-10-31';c.syncAllArPlans();
+ const cash=c.data[0];assert.equal(c.sourceIncomeRows().length,1);Object.assign(cash,{certainty:'received',date:'2026-10-31',actualAmount:200,receipt:{actualDate:'2026-10-31',actualAmount:200,receiptNo:'R1'}});c.syncAllArPlans();
+ assert.equal(c.arOutstanding(c.arInvoices[0]),400);assert.equal(c.sourceReceiptMatch(cash).status,'waiting');
+ d.rawSources.ar.asOf='2026-10-31';d.rawSources.ar.rows[0].balance=400;d.rawSources.receipts={rows:[{company:'PF',code:'C1',bill:'B1',receivedDate:'2026-10-31',received:200,receiptNo:'R1'}]};
+ c.arInvoices=c.sourceReceivableModel(d,c.arInvoices).invoices;c.syncAllArPlans();assert.equal(c.arOutstanding(c.arInvoices[0]),400);assert.equal(c.sourceReceiptMatch(cash).status,'matched');assert.equal(c.data.filter(row=>row.certainty==='received').length,1);
+ const reconciliation=c.sourceReconciliationRows();assert.equal(reconciliation.length,1);assert.equal(reconciliation[0].status,'matched');
+});
+test('tracking tabs separate unplanned, scheduled and settled invoices',()=>{
+ const {c}=setup(),d=snapshot();c.arInvoices=c.sourceReceivableModel(d,[]).invoices;const invoice=c.arInvoices[0];
+ vm.runInContext("sourceArTab='unplanned'",c);assert.equal(c.sourceTrackingVisible(invoice),true);
+ invoice.promiseDate='2026-11-01';assert.equal(c.sourceTrackingVisible(invoice),false);vm.runInContext("sourceArTab='scheduled'",c);assert.equal(c.sourceTrackingVisible(invoice),true);
+ invoice.priorPaid=invoice.amount;assert.equal(c.sourceTrackingVisible(invoice),false);
+});
+test('receipt matching rejects ambiguity, different companies and mismatched dates; file-only rows never confirm cash',()=>{
+ const {c}=setup(),d=snapshot();c.reportData=d;c.rangeStart='2026-10-01';c.rangeEnd='2026-10-31';c.arInvoices=c.sourceReceivableModel(d,[]).invoices;
+ const invoice=c.arInvoices[0],cash={id:1,type:'in',certainty:'received',arInvoiceId:invoice.id,date:'2026-10-25',actualAmount:200};c.data=[cash];
+ const row={company:'NV',code:'C1',bill:'B1',receivedDate:'2026-10-25',received:200};d.rawSources.receipts={rows:[row]};assert.equal(c.sourceReceiptMatch(cash).status,'waiting');
+ row.company='PF';assert.equal(c.sourceReceiptMatch(cash).status,'matched');d.rawSources.receipts.rows.push({...row});assert.equal(c.sourceReceiptMatch(cash).status,'review');
+ d.rawSources.receipts.rows=[{...row,receivedDate:'2026-10-24'}];assert.equal(c.sourceReceiptMatch(cash).status,'review');
+ c.data=[];const result=c.sourceReconciliationRows();assert.equal(result[0].status,'file_only');assert.equal(c.data.length,0);assert.equal(c.arOutstanding(invoice),600);
+});
+test('invoice settlement history is company scoped and does not subtract imported receipts twice',()=>{
+ const {c}=setup(),d=snapshot();
+ d.rawSources.receipts={rows:[{company:'โปรเฟส',code:'C1',bill:'B1',receivedDate:'2026-10-20',received:400,receiptNo:'R1'},{company:'NV',code:'C1',bill:'B1',receivedDate:'2026-10-20',received:999,receiptNo:'NV1'}]};
+ c.reportData=d;c.arInvoices=c.sourceReceivableModel(d,[]).invoices;const invoice=c.arInvoices[0];
+ assert.equal(c.sourceSettlementRows(invoice).length,1);assert.equal(c.sourceSettlementRows(invoice)[0].receiptNo,'R1');assert.equal(c.arOutstanding(invoice),600);assert.equal(c.data.length,0);
+ c.data=[{id:1,type:'in',certainty:'received',arInvoiceId:invoice.id,date:'2026-11-01',amount:100}];
+ assert.equal(c.sourceSettlementRows(invoice).length,2);assert.equal(c.arOutstanding(invoice),500);assert.match(c.sourceSettlementSummary(invoice),/จะไม่หักซ้ำ/);
 });

@@ -18,8 +18,8 @@ const rrPreviewOriginal=rrPreview;
 const rrReadSingleFile=rrRead;
 rrRead=function(kind){
  const rows=rrReadSingleFile(kind),input=rrInputs[kind],saved=reportData?.rawSources?.[kind];
- if(!input||input.cached)return rows;
- return rrMergeCompanyRows(saved?.rows||[],rows,saved?.asOf||reportData?.asOf,$('#rr-asof').value);
+ const merged=!input||input.cached?rows:rrMergeCompanyRows(saved?.rows||[],rows,saved?.asOf||reportData?.asOf,$('#rr-asof').value);
+ return ['ar','receipts'].includes(kind)?rrAlignInvoiceDates(rrRead('sales'),merged):merged;
 };
 function rrSourceMetadata(kind,input){
  const saved=reportData?.rawSources?.[kind],rows=rrReadSingleFile(kind),companies=new Set(rows.map(r=>rrCompanyName(r.company))),retained=!input.cached&&saved?.rows.some(r=>!companies.has(rrCompanyName(r.company)));
@@ -32,7 +32,8 @@ function rrCompanyRowsSignature(rows,company){
 function rrValidateCompanyRetention(plan,previous){
  for(const [kind,source]of Object.entries(previous?.rawSources||{})){
   const updated=new Set(plan.companyUpdates?.[kind]||[]),companies=new Set(source.rows.map(row=>rrCompanyName(row.company)));
-  for(const company of companies)if(!updated.has(company)&&rrCompanyRowsSignature(source.rows,company)!==rrCompanyRowsSignature(plan.rawSources?.[kind]?.rows||[],company))throw Error('หยุดนำเข้า: ข้อมูล '+company+' ในชุด '+(rrNames[kind]||kind)+' เปลี่ยนทั้งที่ไม่ได้อัปโหลดบริษัทนี้ · ยังไม่บันทึกข้อมูล');
+  const baseline=['ar','receipts'].includes(kind)?rrAlignInvoiceDates(plan.rawSources?.sales?.rows||[],source.rows):source.rows;
+  for(const company of companies)if(!updated.has(company)&&rrCompanyRowsSignature(baseline,company)!==rrCompanyRowsSignature(plan.rawSources?.[kind]?.rows||[],company))throw Error('หยุดนำเข้า: ข้อมูล '+company+' ในชุด '+(rrNames[kind]||kind)+' เปลี่ยนทั้งที่ไม่ได้อัปโหลดบริษัทนี้ · ยังไม่บันทึกข้อมูล');
  }
 }
 function rrCompanyImportSummary(plan){
@@ -46,7 +47,7 @@ rrPreview=function(){try{rrValidateSourceModes()}catch(error){rrInvalidate();$('
   let arDate=rawSources.ar.asOf,salesDate=rawSources.sales.asOf;computed.monthly.note+=' · แหล่งยอดขาย ณ '+salesDate+' / ยอดค้าง ณ '+arDate;computed.credit.note+=' · ยอดค้างอ้างอิง '+arDate;for(let kind of ['monthly','credit'])Object.assign(computed[kind],{source:Object.values(rawSources).map(source=>source.file).filter(Boolean).join(' + '),updatedAt:computed.updatedAt,year:computed.year,cashLink:{asOf:arDate,year:computed.year,bills:rawSources.ar.rows.map(r=>({company:r.company,code:r.code,bill:r.bill,date:r.date,balance:r.balance,snapshotAsOf:r.snapshotAsOf}))}});computed.monthly.note+=' · ปรับลดด้วยยอดรับจริงที่ยืนยันหลังวันที่ snapshot เท่านั้น';computed.credit.note+=' · ปรับลดด้วยยอดรับจริงที่ยืนยันหลังวันที่ snapshot เท่านั้น';
   let saved=reportData,merged={...computed,source:Object.values(rawSources).map(source=>source.file).filter(Boolean).join(' + '),rawSources,updatedReports:scope==='both'?['monthly','credit']:[scope]};if(scope==='monthly')merged.credit=saved.credit;if(scope==='credit'){merged.monthly=saved.monthly;merged.year=saved.year}
   // Source bills are connected automatically after the report snapshot is saved.
-  merged.companyUpdates=rrCompanyImportChanges();rrValidateCompanyRetention(merged,saved);rrPlan=merged;$('#rr-preview').insertAdjacentHTML('beforeend',rrCompanyImportSummary(merged));$('#rr-preview').insertAdjacentHTML('beforeend',`<div class="notice"><b>ไฟล์ที่จะใช้</b><p>${esc(rrSourceSummary())}</p>อัปเดต: ${scope==='both'?'ทั้งสองรายงาน':scope==='monthly'?'ยอดขาย-ค้างรายเดือนเท่านั้น · คงรายงานเครดิตเดิม':'รายชื่อลูกค้าและเครดิตเท่านั้น · คงรายงานรายเดือนเดิม'}<br>ยอดขาย ณ ${esc(salesDate)} · ยอดค้าง ณ ${esc(arDate)} · เก็บข้อมูลต้นทางในเบราว์เซอร์นี้เพื่อเปลี่ยนทีละชุดได้</div>${merged.stage?rrStageHTML(merged.stage,false):''}`);
+  merged.companyUpdates=rrCompanyImportChanges();rrValidateCompanyRetention(merged,saved);rrPlan=merged;$('#rr-preview').insertAdjacentHTML('beforeend',rrCompanyImportSummary(merged)+(typeof sourceReconciliationImportNote==='function'?sourceReconciliationImportNote(merged):''));$('#rr-preview').insertAdjacentHTML('beforeend',`<div class="notice"><b>ไฟล์ที่จะใช้</b><p>${esc(rrSourceSummary())}</p>อัปเดต: ${scope==='both'?'ทั้งสองรายงาน':scope==='monthly'?'ยอดขาย-ค้างรายเดือนเท่านั้น · คงรายงานเครดิตเดิม':'รายชื่อลูกค้าและเครดิตเท่านั้น · คงรายงานรายเดือนเดิม'}<br>ยอดขาย ณ ${esc(salesDate)} · ยอดค้าง ณ ${esc(arDate)} · เก็บข้อมูลต้นทางในเบราว์เซอร์นี้เพื่อเปลี่ยนทีละชุดได้</div>${merged.stage?rrStageHTML(merged.stage,false):''}`);
  }catch(e){rrPlan=null;$('#rr-commit').disabled=true;$('#rr-error').textContent=e.message}
 };
 function rrStageHTML(stage,noAr){return `<section class="notice"><b>เชื่อมแผนรับเงิน / ลูกหนี้</b><p>เตรียมฉบับร่างใหม่ ${stage.added.length} บิล · ข้ามบิลที่มีแล้ว ${stage.skipped} · ข้ามบิลยอดไม่เป็นบวก/ไม่ค้าง ${stage.closed}<br>ต้องเติมข้อมูลก่อนบันทึก ${stage.missing} บิล · ไม่เปลี่ยนประวัติหรือยอดรับจริง</p>${noAr?'<p>ยังไม่มีรายงานคงค้าง: ไม่ทราบยอดชำระเดิม บิลที่เตรียมอาจชำระแล้ว ต้องตรวจยอดคงค้างและยอดตัดลดก่อนบันทึก</p>':''}<p>หลังบันทึกในแผนรับ จะเชื่อมรายการรับ ปฏิทิน และภาพรวมผ่านเลขบิลเดียวกัน</p></section>`}

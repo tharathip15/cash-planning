@@ -32,11 +32,14 @@ function setup() {
  return { context, stored, app };
 }
 
-test('payment table places four optional columns after D; income table retains its layout', () => {
+test('payment account follows item in both headers and editable cells; income keeps its fields', () => {
  const { context } = setup();
  const row = { ...context.freshSheetRow('2026-11-01'), principal: 100, interestExpense: 5, expenseType: 'expense', businessUnit: 'Finance' };
  const html = context.sheetTable([row]);
- assert.match(html, /D · ยอด \(บาท\)<\/th><th[^>]*>E · เงินต้น/);
+ assert.match(html, /B · รายการ<\/th><th[^>]*>C · เลขที่บัญชี<\/th><th[^>]*>D · Supplier/);
+ assert.match(html, /E · ยอด \(บาท\)<\/th><th[^>]*>F · เงินต้น/);
+ const keys=[...html.matchAll(/data-grid-key="([^"]+)"/g)].map(match=>match[1]);
+ assert.deepEqual(keys.slice(0,5),['date','group','bankAccount','party','amount']);
  for (const field of ['principal', 'interestExpense', 'expenseType', 'businessUnit']) assert.match(html, new RegExp(`data-grid-key="${field}"`));
  assert.match(html, /value="Finance" selected/);
  assert.match(html, /value="expense" selected/);
@@ -65,7 +68,7 @@ test('Excel maps ประเภท to expense type, preserves numeric blanks an
  assert.equal(exported.rows[0].amount, 105);
  assert.equal(exported.rows[0].principal, 100);
  assert.equal(exported.rows[0].expenseType, 'ต้นทุนสินค้า');
- assert.equal(exported.cols[4].key, 'principal');
+ assert.deepEqual(Array.from(exported.cols.slice(0,6),col=>col.key),['date','group','bankAccount','party','amount','principal']);
  context.view = 'income';
  assert.ok(!context.ioExportSpec(true).cols.some(col => col.key === 'principal'));
 });
@@ -305,11 +308,13 @@ test('generated Excel contains the selected module and preserves numeric and bla
  const sheet = book.Sheets[book.SheetNames[0]];
  const values = context.XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' });
  assert.equal(values.length, 2);
- assert.equal(values[1][3], 105);
- assert.equal(values[1][4], 100);
- assert.equal(values[1][5], 5);
- assert.equal(values[1][7], 'Finance');
- assert.equal(values[1][8],'001-2-34567-8');
+ const cell=key=>values[1][spec.cols.findIndex(col=>col.key===key)];
+ assert.equal(cell('amount'),105);
+ assert.equal(cell('principal'),100);
+ assert.equal(cell('interestExpense'),5);
+ assert.equal(cell('businessUnit'),'Finance');
+ assert.equal(cell('bankAccount'),'001-2-34567-8');
+ assert.equal(spec.cols[2].key,'bankAccount');
  const archive = await context.JSZip.loadAsync(bytes);
  assert.match(await archive.file('xl/worksheets/sheet1.xml').async('string'), /state="frozen"/);
  const summary = { kind: 'summary', name: 'ภาพรวมเงินสด', cols: [{ key: 'balance', label: 'คงเหลือ', type: 'number' }], rows: [{ balance: '' }, { balance: -30 }] };

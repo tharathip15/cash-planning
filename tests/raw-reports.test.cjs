@@ -12,6 +12,52 @@ function source(runtime, kind, data) {
 const salesHeaders=['Doc Date','Doc No','Customer No','Customer Name','CreditDay','Payment Due Date','Net Amount','Goods No','Goods Total Amount'];
 const sale=(amount=107,goods='A')=>['05/01/2569','69-01-001','C1','Customer',30,'04/02/2569',amount,goods,50];
 
+function selectedFile(r,name,grid){
+ const book=r.XLSX.utils.book_new();r.XLSX.utils.book_append_sheet(book,r.XLSX.utils.aoa_to_sheet(grid),'Data');
+ const bytes=r.XLSX.write(book,{type:'buffer',bookType:'xlsx'});
+ return {name,size:bytes.length,arrayBuffer:async()=>bytes};
+}
+test('one selection reads PF, TNP and NV with independent mappings and totals',async()=>{
+ const r=rawReportRuntime(),files=[
+  selectedFile(r,'PF ขาย.xlsx',[['Invoice Date','Doc No','Customer No','Net Amount'],['2026-01-05','S1','C1',100]]),
+  selectedFile(r,'TNP ขาย.xlsx',[['Customer No','Invoice No','Invoice Date','ยอดขาย'],['C1','S1','2026-01-06',200]]),
+  selectedFile(r,'NV ขาย.xlsx',[['Doc No','Net Amount','Customer No','Doc Date'],['S1',300,'C1','2026-01-07']])
+ ];
+ await r.context.rrLoadFiles('sales',files);
+ const rows=r.context.rrRead('sales');assert.equal(rows.length,3);assert.equal(rows.reduce((n,row)=>n+row.amount,0),600);
+ assert.deepEqual(Array.from(rows,row=>row.company),['โปรเฟส','TNP','Novat']);
+ assert.deepEqual(Array.from(rows,row=>row.date),['2026-01-05','2026-01-06','2026-01-07']);
+ assert.equal(r.context.rrCurrentInput('sales').filename,'PF ขาย.xlsx');
+});
+test('duplicate-company and unidentified files block the combined read',async()=>{
+ const r=rawReportRuntime(),grid=[['Invoice Date','Doc No','Customer No','Net Amount'],['2026-01-05','S1','C1',100]];
+ await r.context.rrLoadFiles('sales',[selectedFile(r,'PF ขาย.xlsx',grid),selectedFile(r,'PF ขายใหม่.xlsx',grid)]);
+ assert.throws(()=>r.context.rrRead('sales'),/อยู่ในหลายไฟล์/);
+ await r.context.rrLoadFiles('sales',[selectedFile(r,'PF ขาย.xlsx',grid),selectedFile(r,'ไม่ทราบบริษัท.xlsx',grid)]);
+ assert.throws(()=>r.context.rrRead('sales'),/กรุณาระบุบริษัท/);
+});
+test('unreadable batch file keeps the previous selection intact',async()=>{
+ const r=rawReportRuntime(),grid=[['Invoice Date','Doc No','Customer No','Net Amount'],['2026-01-05','S1','C1',100]];
+ await r.context.rrLoadFiles('sales',[selectedFile(r,'PF ขาย.xlsx',grid)]);
+ const old=r.context.rrCurrentInput('sales');
+ await assert.rejects(r.context.rrLoadFiles('sales',[selectedFile(r,'NV ขาย.xlsx',grid),{name:'TNP ขาย.xlsx',size:16*1024*1024}]),/TNP ขาย.xlsx.*15 MB/);
+ assert.equal(r.context.rrCurrentInput('sales'),old);assert.equal(r.context.rrRead('sales')[0].amount,100);
+});
+test('AR and receipt batches keep company boundaries and retain untouched companies',async()=>{
+ const r=rawReportRuntime();
+ for(const [kind,headers,record,key]of [
+  ['ar',['Invoice Date','Doc No','Customer No','Outstanding'],['2026-10-01','B1','C1',50],'balance'],
+  ['receipts',['Receipt Date','Invoice No','Customer No','Amount Applied'],['2026-10-20','B1','C1',25],'received']
+ ]){
+  await r.context.rrLoadFiles(kind,['PF','TNP','NV'].map(company=>selectedFile(r,company+' ใหม่.xlsx',[headers,record])));
+  const incoming=r.context.rrRead(kind);assert.equal(incoming.length,3);
+  const previous=[{company:'อื่น',code:'C2',bill:'KEEP',[key]:999},{company:'Novat',code:'C1',bill:'OLD',[key]:999}];
+  const merged=r.context.rrMergeCompanyRows(previous,incoming,'2026-10-01','2026-10-31');
+  assert.equal(merged.length,4);assert.equal(merged[0][key],999);assert.equal(merged.filter(row=>row.company==='Novat').length,1);
+  assert.equal(merged.filter(row=>row.bill==='B1').reduce((sum,row)=>sum+row[key],0),record[3]*3);
+ }
+});
+
 test('ERP goods rows with repeated invoice totals count one invoice',()=>{
  const r=rawReportRuntime(),s=source(r,'sales',[salesHeaders,sale(),sale(107,'B')]);
  assert.equal(s.rows().length,1);
@@ -33,6 +79,21 @@ test('generic line-value sales are preserved for aggregation',()=>{
  ]);
  assert.equal(s.rows().length,2);
  assert.equal(s.rows().reduce((sum,row)=>sum+row.amount,0),300);
+});
+test('sales mapping distinguishes Doc Date, Invoice Date and Sale Order No regardless of header order',()=>{
+ const r=rawReportRuntime(),s=source(r,'sales',[
+  ['Delivery No','Doc Date','Doc No','Customer No','Net Amount','Sale Order No','Invoice Date','Shipping Date'],
+  ['DEL-WRONG','31/01/2569','B1','C1',100,'SO-CORRECT','02/02/2569','30/01/2569']
+ ]);
+ const row=s.rows()[0];assert.equal(row.shipmentDate,'2026-01-31');assert.equal(row.date,'2026-02-02');assert.equal(row.invoiceDate,'2026-02-02');assert.equal(row.deliveryNo,'SO-CORRECT');
+ const ar=[{company:row.company,code:'C1',bill:'B1',name:'Customer',date:'2026-01-31',due:'2026-03-01',balance:100}];
+ const receipts=[{company:row.company,code:'C1',bill:'B1',date:'2026-01-31',receivedDate:'2026-02-12',received:50}];
+ const report=r.context.rrBuild([row],ar,[],receipts,2569,'2026-03-01');assert.equal(report.monthly.rows[0][8],0);assert.equal(report.monthly.rows[0][10],100);assert.equal(report.monthly.rows[0][7],10);
+ assert.equal(ar[0].date,'2026-01-31');
+});
+test('an explicit conflicting Invoice Date is rejected rather than silently replaced by Doc Date',()=>{
+ const c=rawReportRuntime().context,sales=[{company:'PF',code:'C1',bill:'B1',name:'Customer',date:'2026-02-02',invoiceDate:'2026-02-02',shipmentDate:'2026-01-31',amount:100}];
+ assert.throws(()=>c.rrBuild(sales,[{company:'PF',code:'C1',bill:'B1',date:'2026-01-31',invoiceDate:'2026-01-31',balance:100}],[],[],2569,'2026-03-01'),/วันที่เอกสารยอดขาย/);
 });
 
 test('one source column can feed multiple fields while type checks remain active',()=>{

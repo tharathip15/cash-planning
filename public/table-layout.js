@@ -1,0 +1,71 @@
+/* Shared table navigation. Width preferences stay on this device, outside finance data. */
+(function () {
+ const storageKey='cash-table-widths-v1',states=new Set();let preferences={};
+ try{preferences=JSON.parse(localStorage.getItem(storageKey)||'{}');if(!preferences||typeof preferences!=='object'||Array.isArray(preferences))preferences={}}catch{}
+ function getPageSize(){let value;try{value=localStorage.getItem('cash-table-page-size')}catch{}return value==='all'?Number.MAX_SAFE_INTEGER:[25,50,100,250].includes(Number(value))?Number(value):50}
+ function pageWindow(total,page,size){const pages=Math.max(1,Math.ceil(total/size)),current=Math.max(0,Math.min(page,pages-1));return {page:current,start:current*size,end:Math.min((current+1)*size,total),pages}}
+ function headerLayout(rows){
+  const grid=[],cells=[];let count=0;
+  Array.from(rows).forEach((row,r)=>{grid[r]||=[];let column=0;for(const cell of row.cells){while(grid[r][column])column++;const span=Math.max(1,cell.colSpan||1),height=Math.max(1,cell.rowSpan||1);cells.push({cell,column,span});for(let y=r;y<r+height;y++){grid[y]||=[];for(let x=column;x<column+span;x++)grid[y][x]=true}column+=span;count=Math.max(count,column)}});
+  return {count,cells};
+ }
+ function enhance(table){
+  if(table.dataset.tableEnhanced||!table.rows.length||!table.getClientRects().length)return;
+  const layout=headerLayout(table.tHead?.rows||[table.rows[0]]);if(!layout.count)return;
+  table.dataset.tableEnhanced='true';
+  const key=(typeof view==='undefined'?'detail':view)+'|'+table.className+'|'+layout.cells.map(({cell})=>cell.textContent.trim()).join('|');
+  let scroller=table.parentElement;
+  if(!scroller.matches('.sheet-wrap,.ar-sheet-scroll,.report-table-wrap,.scroll,.workspace-table-scroll')){scroller=document.createElement('div');table.before(scroller);scroller.append(table)}
+  scroller.classList.add('workspace-table-scroll');scroller.tabIndex=0;scroller.setAttribute('role','region');scroller.setAttribute('aria-label','ตารางข้อมูล เลื่อนซ้ายขวาหรือขึ้นลงได้');
+  const workbench=document.createElement('section');workbench.className='table-workbench';scroller.before(workbench);workbench.append(scroller);
+  const tools=document.createElement('div');tools.className='table-tools';tools.innerHTML='<span>เลื่อนตารางได้ทั้งสองแนว · ลากขอบหัวคอลัมน์เพื่อปรับความกว้าง</span><div><button type="button" data-table-action="left" aria-label="เลื่อนตารางไปทางซ้าย">←</button><button type="button" data-table-action="right" aria-label="เลื่อนตารางไปทางขวา">→</button><button type="button" data-table-action="reset">คืนความกว้าง</button><button type="button" data-table-action="expand" aria-expanded="false">ขยายตาราง</button></div>';
+  const top=document.createElement('div');top.className='table-top-scroll';top.tabIndex=0;top.setAttribute('role','region');top.setAttribute('aria-label','แถบเลื่อนแนวนอนด้านบน');const track=document.createElement('div');top.append(track);workbench.prepend(tools,top);
+  let group=table.querySelector(':scope > colgroup');if(!group){group=document.createElement('colgroup');table.prepend(group)}
+  while(group.children.length<layout.count)group.append(document.createElement('col'));
+  const cols=Array.from(group.children),defaults=cols.map((col,index)=>{
+   const header=layout.cells.find(item=>item.column===index&&item.span===1),measured=header?.cell.getBoundingClientRect().width||160;
+   return Math.max(index===0?52:table.classList.contains('ar-columns-original')?60:90,parseFloat(col.style.width)||Math.min(360,Math.ceil(measured)));
+  });
+  const saved=preferences[key],widths=defaults.map((value,index)=>Number.isFinite(saved?.[index])?Math.max(index===0?52:table.classList.contains('ar-columns-original')?60:90,Math.min(800,saved[index])):value);
+  table.classList.add('workspace-data-table');
+  const state={table,scroller,top,workbench,tools};states.add(state);
+  const pageLabel=document.createElement('label');pageLabel.className='table-page-size';pageLabel.textContent='แถวต่อหน้า ';
+  const pageSelect=document.createElement('select');pageSelect.setAttribute('aria-label','แถวต่อหน้า');pageSelect.innerHTML='<option value="25">25</option><option value="50">50</option><option value="100">100</option><option value="250">250</option><option value="all">ทั้งหมด</option>';pageLabel.append(pageSelect);tools.querySelector('div').prepend(pageLabel);
+  const sourcePaged=table.classList.contains('ar-sheet')||!!table.closest('.income-date-group,.receipt-reconciliation'),detailPaged=table.hasAttribute('data-detail-table');
+  let page=0,size=sourcePaged&&typeof sourcePageSize!=='undefined'?sourcePageSize:detailPaged?Number(table.dataset.pageSize):getPageSize();
+  pageSelect.value=size===Number.MAX_SAFE_INTEGER?'all':String(size);
+  if(!sourcePaged&&!detailPaged){
+   const rows=Array.from(table.tBodies).flatMap(body=>Array.from(body.rows)),pager=document.createElement('div');pager.className='table-pagination';pager.innerHTML='<span role="status"></span><button type="button" data-page-back>ก่อนหน้า</button><button type="button" data-page-next>ถัดไป</button>';workbench.append(pager);
+   const status=pager.querySelector('span'),back=pager.querySelector('[data-page-back]'),next=pager.querySelector('[data-page-next]');
+   function displayPage(){const w=pageWindow(rows.length,page,size);page=w.page;rows.forEach((row,index)=>row.hidden=index<w.start||index>=w.end);status.textContent=(rows.length?'แสดง '+(w.start+1)+'–'+w.end:'ไม่มีรายการ')+' จาก '+rows.length+' แถว · ยอดสรุปและส่งออกใช้ข้อมูลทั้งชุด';back.disabled=page===0;next.disabled=page>=w.pages-1;scroller.scrollTop=0}
+   back.onclick=()=>{page--;displayPage()};next.onclick=()=>{page++;displayPage()};state.setPageSize=value=>{size=value;page=0;displayPage()};displayPage();
+  }
+  pageSelect.onchange=()=>{
+   const value=pageSelect.value==='all'?Number.MAX_SAFE_INTEGER:Number(pageSelect.value);try{localStorage.setItem('cash-table-page-size',pageSelect.value)}catch{}
+   if(sourcePaged&&typeof sourceSetPageSize==='function'){sourceSetPageSize(value);return}
+   if(detailPaged){table.dispatchEvent(new CustomEvent('cash-page-size',{detail:{size:value}}));return}
+   state.setPageSize(value);
+  };
+  function apply(){cols.forEach((col,index)=>{col.style.width=widths[index]+'px'});table.style.setProperty('--first-column-width',widths[0]+'px');table.style.width=widths.reduce((sum,width)=>sum+width,0)+'px';track.style.width=table.style.width}
+  function save(){preferences[key]=widths.slice();try{localStorage.setItem(storageKey,JSON.stringify(preferences))}catch{}}
+  function expanded(on){workbench.classList.toggle('is-expanded',on);tools.querySelector('[data-table-action="expand"]').textContent=on?'ย่อกลับ':'ขยายตาราง';tools.querySelector('[data-table-action="expand"]').setAttribute('aria-expanded',String(on));document.body.classList.toggle('table-expanded',Array.from(states).some(item=>item.workbench.classList.contains('is-expanded')));if(on)scroller.focus()}
+  state.collapse=()=>expanded(false);
+  tools.addEventListener('click',event=>{const action=event.target.closest('[data-table-action]')?.dataset.tableAction;if(action==='left'||action==='right')scroller.scrollBy({left:(action==='left'?-1:1)*Math.max(240,scroller.clientWidth*.5),behavior:'instant'});if(action==='reset'){widths.splice(0,widths.length,...defaults);apply();save()}if(action==='expand')expanded(!workbench.classList.contains('is-expanded'))});
+  scroller.addEventListener('scroll',()=>{if(top.scrollLeft!==scroller.scrollLeft)top.scrollLeft=scroller.scrollLeft},{passive:true});top.addEventListener('scroll',()=>{if(scroller.scrollLeft!==top.scrollLeft)scroller.scrollLeft=top.scrollLeft},{passive:true});
+  scroller.addEventListener('keydown',event=>{if(event.target!==scroller||!['ArrowLeft','ArrowRight'].includes(event.key))return;event.preventDefault();scroller.scrollLeft+=(event.key==='ArrowLeft'?-1:1)*160});
+  scroller.addEventListener('wheel',event=>{if(!event.shiftKey||!event.deltaY||event.deltaX)return;const before=scroller.scrollLeft;scroller.scrollLeft+=event.deltaY;if(before!==scroller.scrollLeft)event.preventDefault()},{passive:false});
+  for(const {cell,column,span}of layout.cells){
+   if(span!==1||cell.tagName!=='TH')continue;
+   const handle=document.createElement('span');handle.className='table-column-resizer';handle.tabIndex=0;handle.setAttribute('role','separator');handle.setAttribute('aria-orientation','vertical');handle.setAttribute('aria-label','ปรับความกว้าง '+cell.textContent.trim());
+   function resize(value){widths[column]=Math.max(column===0?52:table.classList.contains('ar-columns-original')?60:90,Math.min(800,value));handle.setAttribute('aria-valuenow',String(Math.round(widths[column])));apply()}
+   handle.addEventListener('pointerdown',event=>{if(event.button!==0)return;event.preventDefault();event.stopPropagation();const start=event.clientX,width=widths[column];handle.setPointerCapture(event.pointerId);document.body.classList.add('table-resizing');const move=event=>resize(width+event.clientX-start),finish=()=>{handle.removeEventListener('pointermove',move);handle.removeEventListener('pointerup',finish);handle.removeEventListener('pointercancel',finish);document.body.classList.remove('table-resizing');save()};handle.addEventListener('pointermove',move);handle.addEventListener('pointerup',finish);handle.addEventListener('pointercancel',finish)});
+   handle.addEventListener('keydown',event=>{if(!['ArrowLeft','ArrowRight','Home'].includes(event.key))return;event.preventDefault();resize(event.key==='Home'?defaults[column]:widths[column]+(event.key==='ArrowLeft'?-20:20));save()});handle.addEventListener('dblclick',()=>{resize(defaults[column]);save()});cell.append(handle);
+  }
+  apply();const observer=new ResizeObserver(()=>{track.style.width=table.scrollWidth+'px'});observer.observe(table);state.dispose=()=>observer.disconnect();
+ }
+ function scan(root){if(root.nodeType===1&&root.matches('table'))enhance(root);root.querySelectorAll?.('table').forEach(enhance)}
+ function cleanup(){for(const state of states)if(!state.table.isConnected){state.dispose();state.collapse();states.delete(state)}}
+ function start(){scan(document);new MutationObserver(records=>{cleanup();for(const record of records)for(const node of record.addedNodes)if(node.nodeType===1)scan(node)}).observe(document.body,{childList:true,subtree:true});document.addEventListener('keydown',event=>{if(event.key==='Escape')for(const state of states)state.collapse()});document.addEventListener('toggle',event=>{if(event.target.open)scan(event.target)},true)}
+ window.CashTables={headerLayout,getPageSize,pageWindow,refresh:()=>scan(document)};
+ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start,{once:true});else start();
+})();

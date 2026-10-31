@@ -7,6 +7,11 @@ import { createCashHandler } from '../server/cash-http.mjs';
 import { proxyCash } from '../server/cash-proxy.mjs';
 
 const seed = await readSeed();
+test('central projection preserves distinct shipping, invoice and sales-order fields', () => {
+  const projection=buildProjection(seed.storage,seed.assets['data.json']);
+  const distinct=projection.sales.find(row=>row.details.shipmentDate!==row.details.invoiceDate);
+  assert.ok(distinct);assert.equal(distinct.document_date,distinct.details.invoiceDate);assert.ok(distinct.details.deliveryNo);assert.equal(projection.sales.filter(row=>row.details.shipmentDate!==row.details.invoiceDate).length,12);
+});
 test('migration retains company boundaries, all source rows and signed receipts', () => {
   const p = buildProjection(seed.storage, seed.assets['data.json']);
   assert.deepEqual(p.companies.map(r=>r.code).sort(), ['Novat','TNP','โปรเฟส'].sort());

@@ -44,8 +44,23 @@ function reportChooseInitial(bundled,stored){
  for(const kind of ['monthly','credit'])Object.assign(next[kind],{source:next.source,year:next.year,cashLink:{asOf,year:next.year,bills:rawSources.ar.rows.map(r=>({company:r.company,code:r.code,bill:r.bill,date:r.date,balance:r.balance,snapshotAsOf:r.snapshotAsOf}))}});
  return typeof reportApplyCustomerEdits==='function'?reportApplyCustomerEdits(next,{...bundled.customerEdits,...stored.customerEdits}):next;
 }
-function reportChooseAndStoreInitial(bundled,stored){
- const next=reportChooseInitial(bundled,stored);if(!stored||next===stored)return next;
+function reportUpgradeInvoiceFields(snapshot,reference){
+ if(!snapshot?.rawSources?.sales||!Array.isArray(reference?.rows))return snapshot;
+ const fields=new Map(reference.rows.map(([company,code,bill,docDate,invoiceDate,orderNo,amount])=>[rrBillKey({company,code,bill}),{shipmentDate:docDate,invoiceDate,deliveryNo:orderNo,amount}]));
+ let changed=false;const sales=snapshot.rawSources.sales.rows.map(row=>{
+  if(row.fieldMappingVersion>=2)return row;const source=fields.get(rrBillKey(row));
+  if(!source||Math.abs(Number(row.amount)-Number(source.amount))>.01||![source.shipmentDate,source.invoiceDate].includes(row.date))return row;
+  changed=true;return {...row,shipmentDate:source.shipmentDate,deliveryNo:source.deliveryNo,...(source.invoiceDate?{date:source.invoiceDate,invoiceDate:source.invoiceDate}:{}),fieldMappingVersion:2};
+ });
+ if(!changed)return snapshot;
+ const rawSources={...snapshot.rawSources,sales:{...snapshot.rawSources.sales,rows:sales}};
+ for(const kind of ['ar','receipts'])if(rawSources[kind])rawSources[kind]={...rawSources[kind],rows:rrAlignInvoiceDates(sales,rawSources[kind].rows)};
+ const rebuilt=rrBuild(sales,rawSources.ar?.rows||[],rawSources.master?.rows||[],rawSources.receipts?.rows||[],snapshot.year,snapshot.asOf),next={...snapshot,...rebuilt,rawSources,source:snapshot.source,invoiceFieldsVersion:2};
+ for(const kind of ['monthly','credit'])Object.assign(next[kind],{source:snapshot[kind]?.source||snapshot.source,year:snapshot.year,cashLink:{asOf:rawSources.ar?.asOf||snapshot.asOf,year:snapshot.year,bills:(rawSources.ar?.rows||[]).map(({company,code,bill,date,balance,snapshotAsOf})=>({company,code,bill,date,balance,snapshotAsOf}))}});
+ return typeof reportApplyCustomerEdits==='function'?reportApplyCustomerEdits(next,snapshot.customerEdits||{}):next;
+}
+function reportChooseAndStoreInitial(bundled,stored,reference){
+ const next=reportUpgradeInvoiceFields(reportChooseInitial(bundled,stored),reference);if(!stored||next===stored)return next;
  const before=localStorage.getItem(reportStoreKey),backup=localStorage.getItem(reportBackupKey);
  try{localStorage.setItem(reportBackupKey,before||reportSerializeSnapshot(stored));localStorage.setItem(reportStoreKey,reportSerializeSnapshot(next))}
  catch(error){for(const [key,value]of [[reportStoreKey,before],[reportBackupKey,backup]])try{if(value===null)localStorage.removeItem(key);else localStorage.setItem(key,value)}catch{}throw error}
