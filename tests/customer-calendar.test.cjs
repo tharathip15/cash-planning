@@ -3,6 +3,24 @@ const assert=require('node:assert/strict');
 const fs=require('node:fs'),vm=require('node:vm');
 const {rawReportRuntime}=require('./helpers/raw-reports.cjs');
 function runtime(){const c=rawReportRuntime().context;vm.runInContext(fs.readFileSync('public/reports.js','utf8'),c);vm.runInContext(fs.readFileSync('public/customer-calendar.js','utf8'),c);return c}
+test('range selector validates dates, spans months and keeps report and tracking ranges independent',()=>{
+ const c=runtime();assert.equal(c.calendarApplyRange('ar','2026-11-30','2026-12-02'),true);assert.equal(c.calendarApplyRange('ar','2026-12-03','2026-12-02'),false);assert.equal(c.calendarApplyRange('ar','2026-02-30','2026-03-01'),false);
+ assert.deepEqual(Array.from(c.calendarRangeMonths({start:'2026-11-30',end:'2027-01-02'})),['2026-11','2026-12','2027-01']);
+ const records=[{date:'2026-11-29'},{date:'2026-11-30'},{date:'2026-12-02'},{date:'2026-12-03'},{date:''}];assert.equal(c.calendarRangeRows('ar',records).length,2);assert.equal(c.calendarRangeRows('report',records).length,5);
+ assert.equal(c.calendarRangeDates('2024-02').end,'2024-02-29');assert.ok(c.calendarRangeToolbar('ar','2026-11').includes('data-range-export'));
+});
+test('range toolbar sits inside the pastel calendar header and appears once across a multi-month range',()=>{
+ const c=runtime();c.arAsOf='2026-11-01';c.arDate=String;c.calendarApplyRange('ar','2026-11-20','2026-12-02');
+ const html=c.customerCalendarHTML('ar',[]);assert.equal((html.match(/class="calendar-range-toolbar"/g)||[]).length,1);assert.equal((html.match(/customer-calendar-ar/g)||[]).length,2);
+ const header=html.indexOf('<div class="panelhead">'),toolbar=html.indexOf('class="calendar-range-toolbar"'),note=html.indexOf('<p class="customer-calendar-note">');assert.ok(header<toolbar&&toolbar<note);
+});
+test('report date ranges synchronize report month filters and reject absent years without altering the range',()=>{
+ const c=runtime();c.fixture={monthly:{months:[{key:'256911'},{key:'256912'}]}};vm.runInContext('reportData=fixture',c);
+ assert.equal(c.calendarApplyRange('report','2026-11-20','2026-12-02'),true);assert.equal(vm.runInContext('reportState.monthly.from',c),'256911');assert.equal(vm.runInContext('reportState.monthly.to',c),'256912');
+ assert.equal(c.calendarApplyRange('report','2027-01-01','2027-01-31'),false);assert.equal(vm.runInContext('calendarRanges.report.start',c),'2026-11-20');
+ const records=[{company:'PF',code:'C1',date:'2026-11-19',outstanding:100},{company:'PF',code:'C1',date:'2026-11-20',outstanding:40},{company:'NV',code:'C2',date:'2026-11-30',outstanding:60}];
+ const selected=c.calendarRangeRows('report',records),summary=c.customerCalendarSummary('2026-11',selected,{start:'2026-11-20',end:'2026-12-02'});assert.equal(summary.month.start,'2026-11-20');assert.equal(summary.month.outstanding,100);assert.equal(summary.weeks.reduce((n,r)=>n+r.outstanding,0),100);
+});
 test('explicit Buddhist year control changes years and reports unavailable filtered years',()=>{
  const c=runtime();assert.equal(c.calendarMonthInYear('2026-10','2570'),'2027-10');assert.equal(c.calendarMonthInYear('2026-10','2568'),'2025-10');assert.equal(c.calendarMonthInYear('2026-10','oops'),'');
  assert.equal(c.calendarMonthInYear('2026-10','2570',['2026-10']),'');assert.equal(c.calendarMonthInYear('2026-10','2570',['2027-01']),'2027-01');

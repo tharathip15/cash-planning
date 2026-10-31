@@ -78,3 +78,7 @@ test('daily priority badges count pending work once and carry policy priority in
  const html=c.arTaskCalendarPriorityHTML('2026-11-02',[...today,{...today[0],done:true}]);assert.ok(html.includes('data-ar-priority-key="urgent"'));assert.ok(html.includes(today.length+' งาน'));assert.ok(!html.includes('data-ar-priority-key="normal"'));assert.equal(c.arTaskCalendarPriorityHTML('2026-11-02',[{...today[0],done:true}]),'');
  const spec=c.arTaskCalendarSpec(today);assert.ok(spec.rows.every(e=>e.priorityLabel==='เร่งด่วน'));assert.ok(spec.cols.some(col=>col.key==='priorityLabel'));
 });
+test('task range applies to work counts and export across month boundaries without changing report range',()=>{
+ const c=setup();c.arInvoices=[invoice({letter1:'2026-10-31',contactDate:'2026-11-02',logs:[{date:'2026-11-03',by:'A',result:'Follow up'}],priorPaid:1000})];
+ assert.equal(c.calendarApplyRange('tasks','2026-10-31','2026-11-02'),true);const spec=c.arTaskCalendarExportSpec();assert.equal(spec.rows.length,2);assert.ok(spec.rows.every(r=>r.date>='2026-10-31'&&r.date<='2026-11-02'));assert.equal(vm.runInContext('calendarRanges.report',c),null);
+});

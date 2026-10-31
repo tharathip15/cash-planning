@@ -1,5 +1,26 @@
 /* Calendars share the same filtered bills and live balances as their tables. */
 const customerCalendarState={ar:{mode:'table',month:'',basis:'promiseDate'},report:{mode:'table',month:''}};
+const calendarRanges={ar:null,report:null,tasks:null};
+function calendarRangeDates(month){const d=new Date(month+'-01T00:00:00Z');return {start:month+'-01',end:new Date(Date.UTC(d.getUTCFullYear(),d.getUTCMonth()+1,0)).toISOString().slice(0,10)}}
+function calendarRangeRows(kind,rows){const r=calendarRanges[kind];return r?rows.filter(x=>customerCalendarDate(x.date)&&x.date>=r.start&&x.date<=r.end):rows}
+function calendarRangeToolbar(kind,month){
+ const r=calendarRanges[kind]||calendarRangeDates(month),selected=r.start.slice(0,7),names=['มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน','กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม'];
+ return `<section class="calendar-range-toolbar" aria-label="ช่วงวันที่ปฏิทิน"><label>เดือน<select data-range-month>${names.map((name,i)=>`<option value="${String(i+1).padStart(2,'0')}" ${Number(selected.slice(5))===i+1?'selected':''}>${name}</option>`).join('')}</select></label><label>ปี พ.ศ.<input data-range-year type="number" min="2443" max="2643" value="${Number(selected.slice(0,4))+543}"></label><label>เริ่มวันที่<input data-range-start type="date" value="${r.start}"></label><label>ถึงวันที่<input data-range-end type="date" value="${r.end}"></label><button type="button" class="secondary" data-range-apply>ใช้ช่วงวันที่</button><button type="button" class="secondary" data-range-export>ส่งออก Excel · ปฏิทิน</button><span data-range-error role="alert"></span></section>`;
+}
+function calendarApplyRange(kind,start,end){
+ if(!customerCalendarDate(start)||!customerCalendarDate(end)||start>end)return false;
+ if(kind==='report'&&typeof reportData!=='undefined'&&reportData?.monthly?.months){
+  const keys=reportData.monthly.months.filter(m=>{const month=customerReportCalendarMonth(m.key);return month>=start.slice(0,7)&&month<=end.slice(0,7)});if(!keys.length)return false;
+  reportState.monthly.from=keys[0].key;reportState.monthly.to=keys.at(-1).key;
+ }
+ calendarRanges[kind]={start,end};if(kind==='tasks')arTaskCalendarState.month=start.slice(0,7);else customerCalendarState[kind].month=start.slice(0,7);return true;
+}
+function bindCalendarRange(kind,refresh,exportSpec){
+ const root=document.querySelector?.('.calendar-range-toolbar');if(!root)return;
+ const find=selector=>root.querySelector(selector),apply=()=>{if(!calendarApplyRange(kind,find('[data-range-start]').value,find('[data-range-end]').value)){find('[data-range-error]').textContent='เลือกช่วงวันที่ให้ถูกต้อง และตรงกับปีที่มีข้อมูลรายงาน';return}refresh()};
+ const monthChanged=()=>{const year=Number(find('[data-range-year]').value);if(!Number.isInteger(year)||year<2443||year>2643)return;const range=calendarRangeDates((year-543)+'-'+find('[data-range-month]').value);find('[data-range-start]').value=range.start;find('[data-range-end]').value=range.end;apply()};
+ find('[data-range-month]').onchange=monthChanged;find('[data-range-year]').onchange=monthChanged;find('[data-range-apply]').onclick=apply;find('[data-range-export]').onclick=e=>exportStyledExcel(false,exportSpec(),e.currentTarget);
+}
 function customerCalendarDate(value){return /^\d{4}-\d{2}-\d{2}$/.test(value||'')&&!isNaN(Date.parse(value+'T00:00:00Z'))&&new Date(value+'T00:00:00Z').toISOString().slice(0,10)===value}
 function customerReportCalendarMonth(key){return String(Number(String(key).slice(0,4))-543)+'-'+String(key).slice(4,6)}
 function customerCalendarMonthChoices(kind){return kind==='report'&&typeof reportData!=='undefined'&&reportData?.monthly?.months?reportSelectedMonths().map(m=>customerReportCalendarMonth(m.key)):null}
@@ -24,24 +45,25 @@ function customerCalendarGroups(records){
  return [...groups.values()].map(r=>({...r,bills:r.bills.size})).sort((a,b)=>a.company.localeCompare(b.company)||a.name.localeCompare(b.name,'th'));
 }
 function customerCalendarRecords(kind,rows){
- if(kind==='ar')return rows.map(r=>({id:r.id,company:r.sourceCompany,code:r.sourceCustomerCode,name:r.customer,bill:r.billNo,date:r[customerCalendarState.ar.basis]||'',outstanding:arOutstanding(r)}));
+ if(kind==='ar')return calendarRangeRows('ar',rows.map(r=>({id:r.id,company:r.sourceCompany,code:r.sourceCustomerCode,name:r.customer,bill:r.billNo,date:r[customerCalendarState.ar.basis]||'',outstanding:arOutstanding(r)})));
  const keys=reportTotalKeys(),sales=reportSourceDetail(rows,keys[0],'monthly'),debt=reportSourceDetail(rows,keys[1],'monthly');
  if(!sales||!debt)return null;
- return [...sales.rows.map(r=>({...r,sales:r.amount,outstanding:0})),...debt.rows.map(r=>({...r,sales:0,outstanding:r.amount}))];
+ return calendarRangeRows('report',[...sales.rows.map(r=>({...r,sales:r.amount,outstanding:0})),...debt.rows.map(r=>({...r,sales:0,outstanding:r.amount}))]);
 }
 function customerCalendarSwitch(kind){const s=customerCalendarState[kind];return `<div class="customer-calendar-switch" role="group" aria-label="รูปแบบการแสดงผล">${[['table','ตาราง'],['calendar','ปฏิทิน']].map(([key,label])=>`<button type="button" class="secondary" data-customer-mode="${kind}:${key}" aria-pressed="${s.mode===key}">${label}</button>`).join('')}</div>`}
-function customerCalendarSummary(month,records){
+function customerCalendarSummary(month,records,range=null){
  const first=new Date(month+'-01T00:00:00Z'),last=new Date(Date.UTC(first.getUTCFullYear(),first.getUTCMonth()+1,0)).toISOString().slice(0,10);
  const summarize=(start,end,label)=>{
   const groups=customerCalendarGroups(records.filter(r=>customerCalendarDate(r.date)&&r.date>=start&&r.date<=end));
   return {start,end,label,sales:groups.reduce((n,r)=>n+r.sales,0),outstanding:groups.reduce((n,r)=>n+r.outstanding,0),customers:groups.filter(r=>r.outstanding>0).length,...Object.fromEntries(['PF','TNP','NV'].map(company=>[company,groups.filter(r=>r.company===company).reduce((n,r)=>n+r.outstanding,0)]))};
  };
- const weeks=[];let start=month+'-01';
- while(start<=last){const endDate=new Date(start+'T00:00:00Z');endDate.setUTCDate(endDate.getUTCDate()+6-endDate.getUTCDay());const end=endDate.toISOString().slice(0,10)>last?last:endDate.toISOString().slice(0,10);weeks.push(summarize(start,end,'สัปดาห์ '+(weeks.length+1)));const next=new Date(end+'T00:00:00Z');next.setUTCDate(next.getUTCDate()+1);start=next.toISOString().slice(0,10)}
- return {weeks,month:summarize(month+'-01',last,'รวมเดือน')};
+ const from=range&&range.start>month+'-01'?range.start:month+'-01',to=range&&range.end<last?range.end:last;
+ const weeks=[];let start=from;
+ while(start<=to){const endDate=new Date(start+'T00:00:00Z');endDate.setUTCDate(endDate.getUTCDate()+6-endDate.getUTCDay());const end=endDate.toISOString().slice(0,10)>to?to:endDate.toISOString().slice(0,10);weeks.push(summarize(start,end,'สัปดาห์ '+(weeks.length+1)));const next=new Date(end+'T00:00:00Z');next.setUTCDate(next.getUTCDate()+1);start=next.toISOString().slice(0,10)}
+ return {weeks,month:summarize(from,to,'รวมเดือน')};
 }
 function customerCalendarSummaryHTML(kind,month,records){
- const summary=customerCalendarSummary(month,records),columns=[...(kind==='report'?[['sales','ยอดขาย']]:[]),['PF','PF · ยอดค้าง'],['TNP','TNP · ยอดค้าง'],['NV','NV · ยอดค้าง'],['outstanding','ยอดค้างรวม'],['customers','ลูกหนี้ค้าง (ราย)']];
+ const summary=customerCalendarSummary(month,records,calendarRanges[kind]),columns=[...(kind==='report'?[['sales','ยอดขาย']]:[]),['PF','PF · ยอดค้าง'],['TNP','TNP · ยอดค้าง'],['NV','NV · ยอดค้าง'],['outstanding','ยอดค้างรวม'],['customers','ลูกหนี้ค้าง (ราย)']];
  const cells=row=>columns.map(([key,label])=>`<td class="money ${key==='sales'?'green':key==='customers'?'':'red'}"><button type="button" class="calendar-summary-value" data-customer-summary-start="${row.start}" data-customer-summary-end="${row.end}" data-customer-summary-key="${key}" aria-label="${row.label} · ${label} · ดูรายละเอียด">${key==='customers'?row[key].toLocaleString('th-TH'):money(row[key])}</button></td>`).join('');
  return `<div class="calendar-summary"><div class="calendar-summary-heading"><h3>สรุปรายสัปดาห์และรายเดือน</h3><span>${arDate(summary.month.start)} – ${arDate(summary.month.end)}</span></div><div class="scroll"><table><thead><tr><th>ช่วงวันที่</th>${columns.map(([,label])=>`<th class="money">${label}</th>`).join('')}</tr></thead><tbody>${summary.weeks.map(row=>`<tr><th scope="row">${row.label}<small>${arDate(row.start)} – ${arDate(row.end)}</small></th>${cells(row)}</tr>`).join('')}</tbody><tfoot><tr><th scope="row">รวมเดือน<small>ตามตัวกรองปัจจุบัน</small></th>${cells(summary.month)}</tr></tfoot></table></div><p class="helper">ยอดเงินเป็นบาท · จำนวนลูกค้านับไม่ซ้ำแยกตามบริษัทในแต่ละช่วง · ยอดค้างรวมเครดิตโน้ตตามข้อมูลปัจจุบัน · รายการไม่มีวันที่แสดงแยก ไม่รวมในสัปดาห์หรือเดือน · คลิกยอดเพื่อดูรายลูกค้า</p></div>`;
 }
@@ -52,12 +74,26 @@ function customerReportCalendarDayHTML(records){
  return amountRow('ยอดขาย',sum(groups,'sales'),'green')+'<div class="calendar-debt-box" aria-label="ยอดค้างแยกบริษัท">'+amountRow('ยอดค้างรวม',sum(groups,'outstanding'),'red')+companies.map(company=>{const rows=groups.filter(r=>r.company===company),debt=sum(rows,'outstanding'),count=rows.filter(r=>r.outstanding>0).length;return `<small class="customer-calendar-company calendar-debt-row ${debt===0?'is-zero':''}"><span class="calendar-company">${company}</span><strong class="calendar-company-amount">${money(debt)} <span class="calendar-unit">บาท</span></strong><span class="calendar-company-count">${count.toLocaleString('th-TH')} ราย</span></small>`}).join('')+'</div>';
 }
 
+function calendarRangeMonths(range){const months=[];let month=range.start.slice(0,7);while(month<=range.end.slice(0,7)){months.push(month);const d=new Date(month+'-01T00:00:00Z');d.setUTCMonth(d.getUTCMonth()+1);month=d.toISOString().slice(0,7)}return months}
 function customerCalendarHTML(kind,records){
+ if(records===null)return customerCalendarMonthHTML(kind,records);
+ const s=customerCalendarState[kind],range=calendarRanges[kind];
+ if(!s.month)s.month=kind==='ar'?arAsOf.slice(0,7):customerCalendarMonthChoices(kind)?.[0]||records.find(r=>customerCalendarDate(r.date))?.date.slice(0,7)||bangkokToday().slice(0,7);
+ const choices=customerCalendarMonthChoices(kind);if(!range&&choices?.length&&!choices.includes(s.month))s.month=choices[0];
+
+ if(!range)return customerCalendarMonthHTML(kind,records);
+ const filtered=calendarRangeRows(kind,records),html=calendarRangeMonths(range).map(month=>{s.month=month;return customerCalendarMonthHTML(kind,filtered,month!==range.start.slice(0,7))}).join('');s.month=range.start.slice(0,7);return html;
+}
+function customerCalendarRangeExport(kind,rows){
+ const source=customerCalendarRecords(kind,rows)||[],range=calendarRanges[kind]||calendarRangeDates(customerCalendarState[kind].month),records=source.filter(r=>customerCalendarDate(r.date)&&r.date>=range.start&&r.date<=range.end);
+ const cols=[{key:'date',label:'วันที่',type:'date'},{key:'company',label:'บริษัท'},{key:'code',label:'รหัสลูกค้า'},{key:'name',label:'ลูกค้า'},{key:'bill',label:'เลขบิล'},...(kind==='report'?[{key:'sales',label:'ยอดขาย',type:'number'}]:[]),{key:'outstanding',label:'ยอดค้าง',type:'number'}];return {kind:'ar',report:true,name:'ปฏิทิน-'+range.start+'-'+range.end,cols,rows:records};
+}
+function customerCalendarMonthHTML(kind,records,secondary=false){
  const s=customerCalendarState[kind];
  if(records===null)return '<div class="notice">ยังไม่มีข้อมูลบิลรายวันสำหรับปฏิทิน กรุณานำเข้ารายงานต้นทาง · ดูยอดสรุปได้ในมุมมองตาราง</div>';
  const choices=customerCalendarMonthChoices(kind);
  if(choices&&!choices.length)return '<div class="notice">ไม่พบเดือนในช่วงตัวกรองรายงาน กรุณาเลือกช่วงเดือนใหม่</div>';
- if(choices&&!choices.includes(s.month))s.month=choices[0];
+ if(choices&&!choices.includes(s.month)&&!calendarRanges[kind])s.month=choices[0];
  if(!s.month){const first=records.find(r=>customerCalendarDate(r.date));s.month=kind==='ar'?arAsOf.slice(0,7):first?.date.slice(0,7)||bangkokToday().slice(0,7)}
  const first=new Date(s.month+'-01T00:00:00Z'),days=new Date(Date.UTC(first.getUTCFullYear(),first.getUTCMonth()+1,0)).getUTCDate(),byDate=new Map();
  for(const r of records){const key=customerCalendarDate(r.date)?r.date:'unset';if(!byDate.has(key))byDate.set(key,[]);byDate.get(key).push(r)}
@@ -67,10 +103,10 @@ function customerCalendarHTML(kind,records){
  for(let day=1;day<=days;day++){
   const date=s.month+'-'+String(day).padStart(2,'0'),groups=customerCalendarGroups(byDate.get(date)||[]).filter(r=>r.outstanding>0);
   const companies=['PF','TNP','NV'];
-  cells+=`<button type="button" class="day ${groups.length?'has-debt':'no-debt'}" data-customer-day="${date}" aria-label="${esc(arDate(date))} · ยอดค้าง ${groups.length} ราย · ดูรายละเอียด"><b>${day}</b>${kind==='report'?customerReportCalendarDayHTML(byDate.get(date)||[]):companies.map(company=>`<small class="customer-calendar-company">${company} = ยอดค้าง <strong>${groups.filter(r=>r.company===company).length.toLocaleString('th-TH')}</strong> ราย</small>`).join('')}</button>`;
+  cells+=`<button type="button" class="day ${groups.length?'has-debt':'no-debt'} ${calendarRanges[kind]&&(date<calendarRanges[kind].start||date>calendarRanges[kind].end)?'outside-range':''}" ${calendarRanges[kind]&&(date<calendarRanges[kind].start||date>calendarRanges[kind].end)?'disabled':''} data-customer-day="${date}" aria-label="${esc(arDate(date))} · ยอดค้าง ${groups.length} ราย · ดูรายละเอียด"><b>${day}</b>${kind==='report'?customerReportCalendarDayHTML(byDate.get(date)||[]):companies.map(company=>`<small class="customer-calendar-company">${company} = ยอดค้าง <strong>${groups.filter(r=>r.company===company).length.toLocaleString('th-TH')}</strong> ราย</small>`).join('')}</button>`;
  }
 
- return `<section class="panel calendar-section customer-calendar customer-calendar-${kind}"><div class="panelhead"><h2>${esc(monthLabel)}</h2><div class="customer-calendar-controls"><button class="secondary" data-customer-shift="-1" aria-label="เดือนก่อนหน้า">‹</button><label>เดือน <input type="month" id="customer-calendar-month" value="${s.month}"></label>${calendarYearHTML(s.month)}<button class="secondary" data-customer-shift="1" aria-label="เดือนถัดไป">›</button>${kind==='ar'&&typeof arCalendarTabs==='function'?arCalendarTabs():''}${kind==='ar'?`<label>แสดงตาม <select id="customer-calendar-basis"><option value="promiseDate" ${s.basis==='promiseDate'?'selected':''}>วันนัดรับเงิน</option><option value="dueDate" ${s.basis==='dueDate'?'selected':''}>วันครบกำหนดหน้าบิล</option></select></label>`:''}</div></div><p class="customer-calendar-note">แหล่งข้อมูล: PF + Novat + TNP · ยอดตามตัวกรองปัจจุบัน${kind==='report'?' · จัดตามวันที่บิล ยอดค้างเป็นยอดปัจจุบันของบิล ไม่ใช่ยอดย้อนหลังรายวัน':' · เฉพาะบิลที่บันทึกแล้ว'}<br>${kind==='report'?'ยอดขาย '+money(sum('sales'))+' บาท · ':''}ยอดค้างเดือนนี้ ${money(sum('outstanding'))} บาท · กดวันที่เพื่อดูแยกรายลูกค้า</p><div class="scroll"><div class="calendar">${['อา.','จ.','อ.','พ.','พฤ.','ศ.','ส.'].map(d=>`<div class="dayname">${d}</div>`).join('')}${cells}</div></div>${!shown.length?'<p class="customer-calendar-note">ไม่มีรายการในเดือนนี้ตามตัวกรอง</p>':''}${unknown.length?`<button class="secondary customer-calendar-undated" data-customer-day="unset">ยังไม่ระบุวันที่ · ${customerCalendarGroups(unknown).filter(r=>r.outstanding>0).length} รายลูกค้า · ดูรายละเอียด</button>`:''}${customerCalendarSummaryHTML(kind,s.month,records)}</section>`;
+ return `<section class="panel calendar-section customer-calendar customer-calendar-${kind}"><div class="panelhead"><h2>${esc(monthLabel)}</h2>${secondary?'':calendarRangeToolbar(kind,s.month)}${secondary?'':`<div class="customer-calendar-controls"><button class="secondary" data-customer-shift="-1" aria-label="เดือนก่อนหน้า">‹</button><label>เดือน <input type="month" id="customer-calendar-month" value="${s.month}"></label>${calendarYearHTML(s.month)}<button class="secondary" data-customer-shift="1" aria-label="เดือนถัดไป">›</button>${kind==='ar'&&typeof arCalendarTabs==='function'?arCalendarTabs():''}${kind==='ar'?`<label>แสดงตาม <select id="customer-calendar-basis"><option value="promiseDate" ${s.basis==='promiseDate'?'selected':''}>วันนัดรับเงิน</option><option value="dueDate" ${s.basis==='dueDate'?'selected':''}>วันครบกำหนดหน้าบิล</option></select></label>`:''}</div>`}</div><p class="customer-calendar-note">แหล่งข้อมูล: PF + Novat + TNP · ยอดตามตัวกรองปัจจุบัน${kind==='report'?' · จัดตามวันที่บิล ยอดค้างเป็นยอดปัจจุบันของบิล ไม่ใช่ยอดย้อนหลังรายวัน':' · เฉพาะบิลที่บันทึกแล้ว'} · ${kind==='report'?'ยอดขาย '+money(sum('sales'))+' บาท · ':''}ยอดค้างเดือนนี้ ${money(sum('outstanding'))} บาท · กดวันที่เพื่อดูแยกรายลูกค้า</p><div class="scroll"><div class="calendar">${['อา.','จ.','อ.','พ.','พฤ.','ศ.','ส.'].map(d=>`<div class="dayname">${d}</div>`).join('')}${cells}</div></div>${!shown.length?'<p class="customer-calendar-note">ไม่มีรายการในเดือนนี้ตามตัวกรอง</p>':''}${unknown.length?`<button class="secondary customer-calendar-undated" data-customer-day="unset">ยังไม่ระบุวันที่ · ${customerCalendarGroups(unknown).filter(r=>r.outstanding>0).length} รายลูกค้า · ดูรายละเอียด</button>`:''}${customerCalendarSummaryHTML(kind,s.month,records)}</section>`;
 }
 function customerCalendarDetail(kind,date,records){
  const rows=customerCalendarGroups(records.filter(r=>date==='unset'?!customerCalendarDate(r.date):r.date===date)).filter(r=>kind==='report'?['PF','TNP','NV'].includes(r.company)&&(r.sales!==0||r.outstanding!==0):r.outstanding>0);
@@ -86,6 +122,7 @@ function bindCustomerCalendar(kind,rows){
  document.querySelectorAll('[data-customer-mode]').forEach(b=>b.onclick=()=>{s.mode=b.dataset.customerMode.split(':')[1];refresh()});
  if(s.mode!=='calendar')return;
  const records=customerCalendarRecords(kind,rows);if(records===null)return;
+ bindCalendarRange(kind,refresh,()=>customerCalendarRangeExport(kind,rows));
  const choices=customerCalendarMonthChoices(kind);if(choices&&!choices.length)return;
  document.querySelectorAll('[data-customer-shift]').forEach(b=>{const shift=Number(b.dataset.customerShift),index=choices?.indexOf(s.month);b.disabled=!!choices&&!choices[index+shift];b.onclick=()=>{const d=new Date(s.month+'-01T00:00:00Z');d.setUTCMonth(d.getUTCMonth()+shift);const next=choices?choices[choices.indexOf(s.month)+shift]:d.toISOString().slice(0,7);if(next&&customerCalendarSetMonth(kind,next))refresh()}});
  const monthInput=$('#customer-calendar-month');if(choices){monthInput.min=choices[0];monthInput.max=choices.at(-1)}

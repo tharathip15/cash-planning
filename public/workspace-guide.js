@@ -1,10 +1,10 @@
 const workspaceGuideTopics=[
- {id:'start',title:'เริ่มต้นใช้งาน',subtitle:'จากข้อมูลรายการ สู่ภาพรวมเงินสด',view:'overview',action:'เปิดภาพรวม',steps:[
+ {id:'start',title:'เริ่มต้นใช้งาน',subtitle:'จากข้อมูลรายการ สู่ภาพรวมรับ–จ่าย',view:'overview',action:'เปิดภาพรวม',steps:[
   'เลือกช่วงวันที่ที่ต้องการวางแผนจากแถบด้านบน',
   'เพิ่มรายการจ่ายและบิลลูกหนี้ หรือใช้ Import Excel นำเข้าข้อมูลเดิม',
   'กรอกเงินต้นช่วงที่หน้าภาพรวม แล้วคลิกการ์ดเพื่อดูรายการประกอบยอด'
  ],notes:'ข้อมูลใช้งานผ่านฐานข้อมูลกลาง ควรส่งออก Excel เพื่อตรวจสอบและสำรองงาน ระบบยังไม่ดึง Statement ธนาคารให้อัตโนมัติ ต้องตรวจยอดก่อนยืนยันรับจริง'},
- {id:'cash',title:'อ่านภาพรวมเงินสด',subtitle:'เงินต้น รับ จ่าย และเงินคงเหลือ',view:'overview',action:'ดูภาพรวมเงินสด',steps:[
+ {id:'cash',title:'อ่านภาพรวมรับ–จ่าย',subtitle:'เงินต้น รับ จ่าย และเงินคงเหลือ',view:'overview',action:'ดูภาพรวมรับ–จ่าย',steps:[
   'เงินต้นช่วงคือเงินพร้อมใช้ก่อนเริ่มรับ–จ่ายในวันแรก ห้ามรวมเงินรับที่อยู่ในช่วงแล้ว',
   'ยอดรับหลักรวมเฉพาะ “รับชัวร์” และ “รับแล้ว” เงินรับที่ยังไม่ชัวร์แสดงแยก',
   'ยอดจ่ายรวมทั้งแผนและที่จ่ายแล้ว รวมรายการที่ยังไม่ชัวร์เพื่อสำรองเงิน',
@@ -53,6 +53,7 @@ const workspaceGuideTopics=[
 ];
 let workspaceGuideTopic='start',workspaceGuideReturn='overview';
 function updateWorkspaceHeader(){
+ const cashMenu=document.querySelector('#cash-menu');if(cashMenu&&['overview','calendar','income','list'].includes(view))cashMenu.open=true;
  const subtitles={overview:'เงินพร้อมใช้ และแผนรับ–จ่ายของคุณ',calendar:'ดูยอดรายวันและคลิกเพื่อเปิดรายละเอียด',income:'ดูตามวันนัด เช็ก Statement แล้วยืนยันยอดเข้าจริง',list:'จัดการค่าใช้จ่าย เงินต้น ดอกเบี้ย และ BU','ar-plan':'ลูกหนี้รอนัด นัดแล้ว และตรวจเทียบรายงานรับชำระ','ar-calendar':'งานวันนี้ นัดรับ โทรติดตาม หนังสือแจ้ง และงานผิดนัด','report-monthly':'ดูยอดขายและยอดค้างตามตัวกรอง','report-calendar':'ดูปฏิทินยอดขายและยอดค้างแยกรายลูกค้า','report-credit':'ดูเครดิตและเงื่อนไขการชำระของลูกค้า',guide:'วิธีใช้งานและคำตอบที่หาได้ในที่เดียว'};
  const subtitle=document.querySelector('.top p');if(subtitle)subtitle.textContent=subtitles[view]||'จัดการแผนรับ–จ่ายของคุณ';
  const exportButton=document.querySelector('#export');

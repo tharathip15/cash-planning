@@ -67,6 +67,6 @@ function renderDebtorStatus(){
 }
 
 // Boot is separate from the pure status and reconciliation functions for tests.
-document.querySelector('#report-menu')?.insertAdjacentHTML('beforeend','<button data-view="report-debt-status" id="nav-debtor-status">สถานะลูกหนี้</button>');
+document.querySelector('#report-menu')?.insertAdjacentHTML('beforeend','<button data-view="report-debt-status" id="nav-debtor-status"><svg class="nav-sub-icon" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 4 6v6c0 5 8 9 8 9s8-4 8-9V6l-8-3Z"/><path d="m8 12 3 3 5-6"/></svg>สถานะลูกหนี้</button>');
 if($('#nav-debtor-status'))$('#nav-debtor-status').onclick=()=>{view='report-debt-status';render();document.querySelector('aside')?.removeAttribute('data-mobile-open')};
 (globalThis.CashCentral ? globalThis.CashCentral.fetchAsset('debtor-status-seed.json') : fetch('debtor-status-seed.json')).then(r=>{if(!r.ok)throw Error('อ่านเอกสารสถานะไม่สำเร็จ');return r.json()}).then(d=>{debtorStatusSeed=d.rows;debtorSeedLoaded=true;if(view.startsWith('report-')||view==='ar-plan')render()}).catch(e=>{$('#save-message').textContent=e.message});
