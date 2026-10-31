@@ -94,14 +94,12 @@
     const {own:saved,others:recoveries} = await loadOutbox(), remote = await api();
     if (!remote.storage || !Number.isSafeInteger(remote.revision)) throw Error('ข้อมูลฐานกลางไม่สมบูรณ์');
     cache = {...remote.storage}; baseline = {...remote.storage}; assets = remote.assets; revision = remote.revision;
-    const legacy = Object.fromEntries(keys.map(key => [key, original.getItem.call(localStorage, key)]).filter(([, value]) => value !== null));
     bar = document.createElement('div'); bar.className = 'cash-central-status'; bar.setAttribute('data-cash-sync', '');
     const live = document.createElement('span'); live.setAttribute('role','status'); live.setAttribute('aria-live','polite'); bar.append(live);
     for (const [attribute, label, handler] of [
       ['data-retry','ลองอีกครั้ง',()=>flush()],
       ['data-export','สำรองการแก้ไข',()=>exportData(cache,'cash-planning-unsaved.json')],
-      ['data-legacy','สำรองข้อมูลเดิมในเครื่อง',()=>exportData(legacy,'cash-planning-browser-before-db.json')],
-    ]) { const button = document.createElement('button'); button.type='button'; button.className='secondary'; button.setAttribute(attribute,''); button.textContent=label; button.onclick=handler; button.hidden=attribute==='data-legacy'?!Object.keys(legacy).some(key=>legacy[key]!==baseline[key]):true; bar.append(button); }
+    ]) { const button = document.createElement('button'); button.type='button'; button.className='secondary'; button.setAttribute(attribute,''); button.textContent=label; button.onclick=handler; button.hidden=true; bar.append(button); }
     if(recoveries.length){const button=document.createElement('button');button.type='button';button.className='secondary';button.textContent='สำรองรายการรอบันทึกก่อนหน้า';button.onclick=()=>exportData(recoveries,'cash-planning-pending-recovery.json');bar.append(button);}
     document.getElementById('profess-workspace').before(bar);
     Storage.prototype.getItem = function(key) { return this === localStorage && keys.includes(String(key)) ? cache[key] ?? null : original.getItem.call(this, key); };
